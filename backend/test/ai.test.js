@@ -1,0 +1,100 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { cleaningDraft } from "../src/services/ai.js";
+import { weeklyForecast } from "../src/services/forecast.js";
+test("AI chưa có key báo fallback, không giả kết quả", async () => {
+  const original = process.env.OPENAI_API_KEY;
+  delete process.env.OPENAI_API_KEY;
+  try {
+    await assert.rejects(
+      () => cleaningDraft("Dọn phòng"),
+      (e) => e.status === 503,
+    );
+  } finally {
+    if (original) process.env.OPENAI_API_KEY = original;
+  }
+});
+test("AI schema thật qua HTTP adapter mock, thời gian Việt Nam", async () => {
+  const original = process.env.OPENAI_API_KEY;
+  process.env.OPENAI_API_KEY = "unit-test-only";
+  try {
+    const data = {
+      serviceCode: "FULL",
+      checklist: ["thay ga"],
+      requestedDate: "2026-10-29",
+      windowStart: "2026-10-29T15:00:00+07:00",
+      windowEnd: "2026-10-29T16:00:00+07:00",
+      clarificationNeeded: false,
+      clarificationQuestion: null,
+    };
+    const result = await cleaningDraft(
+      "Chiều nay 3 giờ dọn và thay ga, xong trước 4 giờ",
+      new Date("2026-10-29T01:00:00Z"),
+      async (url, options) => {
+        assert.equal(url, "https://api.openai.com/v1/responses");
+        const body = JSON.parse(options.body);
+        assert.equal(body.text.format.strict, true);
+        assert.equal(body.store, false);
+        assert(!options.body.includes('roomId":"'));
+        return {
+          ok: true,
+          json: async () => ({
+            output: [
+              {
+                content: [{ type: "output_text", text: JSON.stringify(data) }],
+              },
+            ],
+          }),
+        };
+      },
+    );
+    assert.equal(result.requiresConfirmation, true);
+    assert.equal(result.serviceCode, "FULL");
+    assert(result.checklist.includes("Thay ga giường"));
+  } finally {
+    if (original) process.env.OPENAI_API_KEY = original;
+    else delete process.env.OPENAI_API_KEY;
+  }
+});
+test("AI timeout và JSON sai đều fallback", async () => {
+  const original = process.env.OPENAI_API_KEY;
+  process.env.OPENAI_API_KEY = "unit-test-only";
+  try {
+    await assert.rejects(
+      () =>
+        cleaningDraft("Dọn phòng", new Date(), async () => {
+          throw Error("Timeout");
+        }),
+      (e) => e.status === 503,
+    );
+    await assert.rejects(
+      () =>
+        cleaningDraft("Dọn phòng", new Date(), async () => ({
+          ok: true,
+          json: async () => ({
+            output: [{ content: [{ type: "output_text", text: "not json" }] }],
+          }),
+        })),
+      (e) => e.status === 503,
+    );
+  } finally {
+    if (original) process.env.OPENAI_API_KEY = original;
+    else delete process.env.OPENAI_API_KEY;
+  }
+});
+test("Forecast từ chối thiếu lịch sử và backtest chỉ nhìn quá khứ", () => {
+  assert.equal(weeklyForecast([]).available, false);
+  const series = Array.from({ length: 70 }, (_, i) => {
+    const date = new Date(Date.UTC(2026, 0, 1 + i));
+    return {
+      date: date.toISOString().slice(0, 10),
+      revenue: date.getUTCDay() * 100000,
+      demand: date.getUTCDay(),
+    };
+  });
+  const f = weeklyForecast(series, 30);
+  assert.equal(f.days.length, 30);
+  assert.equal(f.backtest.revenueMAE, 0);
+  assert.equal(f.backtest.demandMAE, 0);
+  assert.equal(f.days[0].date, "2026-03-12");
+});

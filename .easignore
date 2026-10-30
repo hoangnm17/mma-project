@@ -1,0 +1,12 @@
+.git
+node_modules
+backend
+deploy
+docs
+artifacts
+dist
+.env*
+!.env.example
+compose*.yaml
+Dockerfile
+StayFlow_Coding_Agent_Prompt.md

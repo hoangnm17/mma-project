@@ -1,0 +1,10 @@
+# Explicit demo opt-in; seed runs before bootstrap-admin because seed skips existing admin.
+# Use only with a fresh demo database, never against a production database.
+services:
+  migrate:
+    command:
+      [
+        sh,
+        -c,
+        "node scripts/migrate.js && node scripts/provision-runtime.js && node scripts/seed.js && node scripts/bootstrap-admin.js",
+      ]
