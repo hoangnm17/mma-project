@@ -18,15 +18,11 @@
     "express-rate-limit": "^8.0.0",
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.2",
-    "mssql": "^12.0.0",
+    "mongodb": "^6.21.0",
     "socket.io": "^4.8.1",
     "zod": "^4.0.0"
   },
   "devDependencies": {
     "supertest": "^7.1.0"
-  },
-  "overrides": {
-    "@azure/identity": "4.13.0",
-    "uuid": "11.1.1"
   }
 }

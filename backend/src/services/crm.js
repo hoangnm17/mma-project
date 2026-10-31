@@ -13,18 +13,25 @@ export async function crmAction(tx, actor, action, raw) {
       .parse(raw);
     if (actor.role === "Cleaner")
       assert(
-        await one(
-          tx,
-          "SELECT a.id FROM CleaningAssignments a JOIN HousekeepingTasks t ON t.id=a.taskId WHERE a.cleanerId=@userId AND t.roomId=@roomId",
-          { userId: actor.id, roomId: b.roomId },
-        ),
+        await one(tx, "cleanerRoomAssignment", {
+          userId: actor.id,
+          roomId: b.roomId,
+        }),
         "Chỉ báo sự cố tại phòng đã được giao",
         403,
       );
     const incidentId = id();
     await query(
       tx,
-      "INSERT Incidents(id,roomId,reportedBy,description) VALUES(@id,@roomId,@reportedBy,@description)",
+      (p) => ({
+        collection: "Incidents",
+        insert: {
+          id: p.id,
+          roomId: p.roomId,
+          reportedBy: p.reportedBy,
+          description: p.description,
+        },
+      }),
       { ...b, id: incidentId, reportedBy: actor.id },
     );
     await notifyDesk(
@@ -44,7 +51,17 @@ export async function crmAction(tx, actor, action, raw) {
       .parse(raw);
     await query(
       tx,
-      "UPDATE Incidents SET status='RESOLVED',resolution=@resolution,resolvedAt=SYSUTCDATETIME() WHERE id=@id",
+      (p) => ({
+        collection: "Incidents",
+        filter: { id: p.id },
+        update: {
+          $set: {
+            status: "RESOLVED",
+            resolution: p.resolution,
+            resolvedAt: new Date(),
+          },
+        },
+      }),
       b,
     );
     await audit(tx, actor, action, b.id, b);
@@ -72,13 +89,37 @@ export async function crmAction(tx, actor, action, raw) {
     if (b.id)
       await query(
         tx,
-        "UPDATE Campaigns SET name=@name,channel=@channel,startsAt=@start,endsAt=@end,budget=@budget,draft=@draft WHERE id=@id",
+        (p) => ({
+          collection: "Campaigns",
+          filter: { id: p.id },
+          update: {
+            $set: {
+              name: p.name,
+              channel: p.channel,
+              startsAt: p.start,
+              endsAt: p.end,
+              budget: p.budget,
+              draft: p.draft,
+            },
+          },
+        }),
         { ...b, id: cid, start: new Date(b.startsAt), end: new Date(b.endsAt) },
       );
     else
       await query(
         tx,
-        "INSERT Campaigns(id,name,channel,startsAt,endsAt,budget,draft) VALUES(@id,@name,@channel,@start,@end,@budget,@draft)",
+        (p) => ({
+          collection: "Campaigns",
+          insert: {
+            id: p.id,
+            name: p.name,
+            channel: p.channel,
+            startsAt: p.start,
+            endsAt: p.end,
+            budget: p.budget,
+            draft: p.draft,
+          },
+        }),
         { ...b, id: cid, start: new Date(b.startsAt), end: new Date(b.endsAt) },
       );
     await audit(tx, actor, action, cid);
@@ -113,13 +154,40 @@ export async function crmAction(tx, actor, action, raw) {
     if (b.id)
       await query(
         tx,
-        "UPDATE Vouchers SET discount=@discount,minTotal=@minTotal,startsAt=@start,endsAt=@end,maxUses=@maxUses,perCustomer=@perCustomer,enabled=@enabled WHERE id=@id",
+        (p) => ({
+          collection: "Vouchers",
+          filter: { id: p.id },
+          update: {
+            $set: {
+              discount: p.discount,
+              minTotal: p.minTotal,
+              startsAt: p.start,
+              endsAt: p.end,
+              maxUses: p.maxUses,
+              perCustomer: p.perCustomer,
+              enabled: p.enabled,
+            },
+          },
+        }),
         params,
       );
     else
       await query(
         tx,
-        "INSERT Vouchers(id,code,discount,minTotal,startsAt,endsAt,maxUses,perCustomer,enabled) VALUES(@id,@code,@discount,@minTotal,@start,@end,@maxUses,@perCustomer,@enabled)",
+        (p) => ({
+          collection: "Vouchers",
+          insert: {
+            id: p.id,
+            code: p.code,
+            discount: p.discount,
+            minTotal: p.minTotal,
+            startsAt: p.start,
+            endsAt: p.end,
+            maxUses: p.maxUses,
+            perCustomer: p.perCustomer,
+            enabled: p.enabled,
+          },
+        }),
         params,
       );
     await audit(tx, actor, action, vid);
@@ -132,7 +200,15 @@ export async function crmAction(tx, actor, action, raw) {
         tier: z.enum(["STANDARD", "SILVER", "GOLD"]),
       })
       .parse(raw);
-    await query(tx, "UPDATE Customers SET tier=@tier WHERE id=@customerId", b);
+    await query(
+      tx,
+      (p) => ({
+        collection: "Customers",
+        filter: { id: p.customerId },
+        update: { $set: { tier: p.tier } },
+      }),
+      b,
+    );
     await audit(tx, actor, action, b.customerId, b);
     return { ok: true };
   }
@@ -142,7 +218,17 @@ export async function voucherDiscount(tx, code, customerId, total) {
   if (!code) return null;
   const voucher = await one(
     tx,
-    "SELECT * FROM Vouchers WHERE code=@code AND enabled=1 AND startsAt<=SYSUTCDATETIME() AND endsAt>SYSUTCDATETIME()",
+    (p) => ({
+      collection: "Vouchers",
+      filter: {
+        $and: [
+          { code: p.code },
+          { enabled: true },
+          { startsAt: { $lte: new Date() } },
+          { endsAt: { $gt: new Date() } },
+        ],
+      },
+    }),
     { code },
   );
   assert(
@@ -150,11 +236,7 @@ export async function voucherDiscount(tx, code, customerId, total) {
     "Voucher hết hạn hoặc chưa đủ giá trị hóa đơn",
     400,
   );
-  const used = await one(
-    tx,
-    "SELECT COUNT(*) total,SUM(CASE WHEN customerId=@customerId THEN 1 ELSE 0 END) customer FROM VoucherRedemptions WHERE voucherId=@id",
-    { id: voucher.id, customerId },
-  );
+  const used = await one(tx, "voucherUsage", { id: voucher.id, customerId });
   assert(
     used.total < voucher.maxUses && (used.customer || 0) < voucher.perCustomer,
     "Voucher đã hết lượt sử dụng",

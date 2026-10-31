@@ -1,50 +1,36 @@
 import { readFile, readdir } from "node:fs/promises";
 import { createHash } from "node:crypto";
-import sql from "mssql";
-import { config } from "../src/config.js";
-import { database, query, transaction, closeDatabase } from "../src/db.js";
-if (!/^[A-Za-z][A-Za-z0-9_]{0,63}$/.test(config.sql.database))
-  throw Error("Tên database không hợp lệ");
-const master = await new sql.ConnectionPool({
-  ...config.sql,
-  database: "master",
-}).connect();
-await master
-  .request()
-  .query(
-    `IF DB_ID('${config.sql.database}') IS NULL CREATE DATABASE [${config.sql.database}]`,
-  );
-await master.close();
-const pool = await database();
-await query(
-  pool,
-  "IF OBJECT_ID('SchemaMigrations') IS NULL CREATE TABLE SchemaMigrations(name varchar(150) PRIMARY KEY,hash varchar(64) NOT NULL,appliedAt datetime2 NOT NULL DEFAULT SYSUTCDATETIME())",
-);
-for (const file of (await readdir(new URL("../migrations/", import.meta.url)))
-  .filter((f) => f.endsWith(".sql"))
-  .sort()) {
-  const source = await readFile(
-    new URL("../migrations/" + file, import.meta.url),
-    "utf8",
-  );
-  const hash = createHash("sha256").update(source).digest("hex");
-  await transaction(async (tx) => {
-    const [old] = await query(
-      tx,
-      "SELECT hash FROM SchemaMigrations WHERE name=@file",
-      { file },
+import { database, closeDatabase } from "../src/db.js";
+try {
+  const { db } = await database();
+  const hello = await db.admin().command({ hello: 1 });
+  if (!hello.setName)
+    throw Error("MongoDB phải chạy replica set để hỗ trợ transaction.");
+  const migrations = db.collection("SchemaMigrations");
+  for (const file of (await readdir(new URL("../migrations/", import.meta.url)))
+    .filter((f) => f.endsWith("_mongo.js"))
+    .sort()) {
+    const url = new URL("../migrations/" + file, import.meta.url);
+    const source = await readFile(url, "utf8");
+    // Fingerprint the immutable schema for this version, not today's runtime schema.
+    // 001's snapshot is byte-for-byte the original schema to retain deployed hashes.
+    const schema = await readFile(
+      new URL("../migrations/" + file.replace(".js", ".schema.snapshot"), import.meta.url),
+      "utf8",
     );
+    const hash = createHash("sha256")
+      .update(source)
+      .update(schema)
+      .digest("hex");
+    const old = await migrations.findOne({ _id: file });
     if (old) {
       if (old.hash !== hash) throw Error("Migration đã đổi: " + file);
-      return;
+      continue;
     }
-    for (const batch of source.split(/^GO\s*$/im))
-      if (batch.trim()) await query(tx, batch);
-    await query(tx, "INSERT SchemaMigrations(name,hash) VALUES(@file,@hash)", {
-      file,
-      hash,
-    });
+    await (await import(url.href)).up(db);
+    await migrations.insertOne({ _id: file, hash, appliedAt: new Date() });
     console.log("Applied", file);
-  });
+  }
+} finally {
+  await closeDatabase();
 }
-await closeDatabase();

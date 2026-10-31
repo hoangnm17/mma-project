@@ -1,10 +1,14 @@
 .git
-node_modules
-backend/node_modules
-.expo
+**/node_modules
+**/.expo
 .env*
 backend/.env*
+**/.env
+**/.env.*
+**/*.pem
+**/*.key
 artifacts
 dist
+**/dist
 docs
 *.md

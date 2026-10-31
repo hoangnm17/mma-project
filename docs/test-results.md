@@ -1,5 +1,22 @@
 # Kết quả kiểm thử — cập nhật 30/10/2026
 
+## APK cloud HTTPS — kết quả mới nhất
+
+- API https://3.26.69.81.sslip.io/health trả200/status ok qua TLS; rooms chưa auth trả401.
+- EAS team build69ead6f9-e82c-4483-9dd3-5723a144c718 FINISHED; [APK cloud](https://expo.dev/artifacts/eas/NSmxhawpeEXqTFp8b-gd5jyJwV38KxrkoLHmg1pHtZQ.apk), versionCode2, HTTP tắt. Remote Doctor21/21, lint và JS syntax/module pass.
+- APK đã tải99.910.738bytes và verify chữ ký giống APK LAN. JS bundle có đúng URL HTTPS cloud, không URL LAN cũ; embedded config đúng project/team/code2, manifest cleartext false. SHA256 ở eas-build.md.
+- Team sau build dùng4/15 Android, còn11; overage0. Chưa cài/chạy đăng nhập native cloud hoặc test Android vật lý trong lượt đổi endpoint này. Emulator smoke của APK LAN bên dưới không phải bằng chứng native cloud.
+
+## Chuyển MongoDB (kết quả hiện hành)
+
+- Backend Express + MongoDB driver6.21, MongoDB8.0 replica set thật trên Docker localhost27027; không dùng SQL Server trong lượt kiểm tra này.
+- Unit17/17 pass; integration **22 kịch bản con pass**, TAP24/24 tính hai wrapper: 18 workflow và bốn Mongo checks (rollback, partial unique active task/cleaner, database validator, mọi read resource Admin không lộ passwordHash).
+- Chạy mỗi lần trên database StayFlow_<timestamp>Test riêng, migrate/seed rồi chỉ xóa database do chính lượt chạy tạo. SQL database cũ giữ nguyên, không import hoặc reset.
+- Lần đầu thất bại nhánh refund do SQL template động chưa chuyển; đã sửa sang native insert và full run sau đạt24/24. Không chỉ chạy lại ca lỗi.
+- Docker multi-stage API/web image mới build thành công, log artifacts/mongo-cloud-build.log. Production-like auth/runtime smoke đã đạt: keyfile/root auth/rs-init/migrate/seed/bootstrap; health/web200, login3role + read/RBAC, API chỉ dùng stayflow_app và không nhận root/bootstrap/demo secrets. Backend audit0. ESLint zero warning và compiler JS syntax/module pass. AWS2GB/load/TLS/backup chưa kiểm thử. Không tạo APK mới trong đợt backend này.
+
+Các kết quả SQL Server/EAS/UI bên dưới là lịch sử trước chuyển MongoDB.
+
 ## Đợt UI v2 và EAS team
 
 UI v2 dùng Expo icons/gradient, dashboard/thao tác nhanh, bottom navigation, menu mô tả, card phòng và các thành phần dùng chung. Lint zero warnings, compiler JS syntax/module pass, Expo dependency check up to date, Doctor 21/21, Android Hermes và web export pass. Regression backend unit 17/17 pass; không thay business service/schema trong đợt UI này.
@@ -8,7 +25,7 @@ UI v2 dùng Expo icons/gradient, dashboard/thao tác nhanh, bottom navigation, m
 
 Đã kiểm tra EAS team Free, Android dùng 2/15 trước build. Build team thật ID `24b5d802-5bbe-4464-8887-64d1e247b71b`, owner `hoangnm17s-team`, project `431a1384-6506-47bd-9c12-b73faeafceee`, profile preview-team đã **FINISHED**. [APK release thật](https://expo.dev/artifacts/eas/Z67uEeXpefc1kga7t6to-IMK6dYY7etUaW89GAsZ11o.apk). Sau build: Android 3/15, còn 12 lượt; estimated/overage 0 cents. Lỗi quota cá nhân chỉ là lịch sử.
 
-APK tải về 99.912.162 bytes, apksigner verify pass v2, package vn.stayflow.mobile, minSdk24/targetSdk36, JS bundle assets/index.android.bundle, font và ABI arm64 đều có. Đã cài Success lên emulator Pixel_7 read-only, cold launch MainActivity trả Status ok, process còn chạy; không có AndroidRuntime/ReactNativeJS error trong cửa sổ log sau mở. Release có bundle sẵn, không cần Metro. Emulator TCP tới 192.168.66.150:4000 exit0; manifest demo cho phép cleartext. Đây là startup/network smoke, **chưa test toàn bộ luồng nghiệp vụ/đăng nhập native hoặc thiết bị Android vật lý**. Không dùng các thử nghiệm netcat HTTP không trả dữ liệu để tuyên bố đã đọc HTTP/JSON thành công trong app.
+APK tải về 99.912.162 bytes, apksigner verify pass v2, package vn.stayflow.mobile, minSdk24/targetSdk36, JS bundle frontend/assets/index.android.bundle, font và ABI arm64 đều có. Đã cài Success lên emulator Pixel_7 read-only, cold launch MainActivity trả Status ok, process còn chạy; không có AndroidRuntime/ReactNativeJS error trong cửa sổ log sau mở. Release có bundle sẵn, không cần Metro. Emulator TCP tới 192.168.66.150:4000 exit0; manifest demo cho phép cleartext. Đây là startup/network smoke, **chưa test toàn bộ luồng nghiệp vụ/đăng nhập native hoặc thiết bị Android vật lý**. Không dùng các thử nghiệm netcat HTTP không trả dữ liệu để tuyên bố đã đọc HTTP/JSON thành công trong app.
 
 Emulator headless/read-only riêng cho lượt test được dừng sau kiểm tra. Không reset AVD, không thay firewall hay cấu hình mạng. Logs: artifacts/apk-signature.log, apk-badging.log, apk-launch.log, apk-runtime-errors.log, apk-manifest.log.
 
@@ -38,3 +55,9 @@ Docker image `stayflow-demo:local` build thành công từ Dockerfile multi-stag
 - Mobile npm audit checkpoint còn 11 advisory (3 high/3 moderate/5 low), chủ yếu Expo CLI/config và transitive router. App/backend dùng Zod 4.6.7 đã vá; Expo CLI còn Zod 3. Không ép downgrade Expo về SDK 51 theo đề xuất audit vì phá SDK 57. Cần theo dõi bản vá upstream; không tuyên bố toàn bộ dependency sạch.
 
 Log local (gitignored): artifacts/unit.log, integration.log, lint.log, android-export.log, web-export.log, expo-doctor.log, eas-build.log, mobile-audit.json, backend-audit.json, docker-build.log. Chạy lại theo README, kiểm tra exit code từng lệnh. Các log có thể được ghi đè bởi lượt chạy sau.
+# Lượt xác minh 31/10/2026 — lỗi thao tác và giao diện
+
+- MongoDB 8.2.6 replica set native localhost:27037: 40/40 integration đạt, database riêng được dọn sau test. Migration được chạy lại trước các test để kiểm tra tính lặp.
+- 27/27 unit/HTTP test đạt, gồm CSP cho script khởi tạo Expo.
+- 5 luồng UI trên Chrome headless 390×844 đạt: phòng trống không cần giờ trả; phiếu thu/hoàn cọc; chi tiết lưu trú/thêm dịch vụ; nhận phòng; thanh toán trả phòng. Không pageerror; Dashboard không tràn ngang.
+- Lint/typecheck và export web/Android đạt. Chưa xác nhận APK Android thật hay cloud. [Chi tiết](bugfix-verification.md).

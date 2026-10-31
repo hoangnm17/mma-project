@@ -1,7 +1,19 @@
-import test from "node:test";
+import test, { beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import { cleaningDraft } from "../src/services/ai.js";
 import { weeklyForecast } from "../src/services/forecast.js";
+let providerEnvironment;
+beforeEach(() => {
+  providerEnvironment = { AI_PROVIDER: process.env.AI_PROVIDER, GEMINI_API_KEY: process.env.GEMINI_API_KEY };
+  process.env.AI_PROVIDER = "openai";
+  delete process.env.GEMINI_API_KEY;
+});
+afterEach(() => {
+  for (const [key, value] of Object.entries(providerEnvironment)) {
+    if (value === undefined) delete process.env[key];
+    else process.env[key] = value;
+  }
+});
 test("AI chưa có key báo fallback, không giả kết quả", async () => {
   const original = process.env.OPENAI_API_KEY;
   delete process.env.OPENAI_API_KEY;

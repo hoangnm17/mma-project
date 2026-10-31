@@ -39,9 +39,9 @@ function ok(r) {
   assert.equal(r.status, 200, JSON.stringify(r.body));
   return r.body;
 }
-test("StayFlow SQL Server integration", async (t) => {
+test("StayFlow MongoDB integration", async (t) => {
   assert(
-    config.sql.database.endsWith("Test"),
+    config.mongo.database.endsWith("Test"),
     "Chỉ chạy integration trên database có hậu tố Test",
   );
   const admin = await logIn("admin"),
@@ -52,7 +52,11 @@ test("StayFlow SQL Server integration", async (t) => {
   await transaction((tx) =>
     query(
       tx,
-      "UPDATE CleanerProfiles SET accepting=0 WHERE userId NOT IN (@a,@b)",
+      (p) => ({
+        collection: "CleanerProfiles",
+        filter: { userId: { $nin: [p.a, p.b] } },
+        update: { $set: { accepting: false } },
+      }),
       { a: c1.user.id, b: c2.user.id },
     ),
   );
@@ -89,7 +93,7 @@ test("StayFlow SQL Server integration", async (t) => {
         startsAt: future(72),
         endsAt: future(96),
         guests: 1,
-        mode: "DAY",
+        mode: "NIGHT",
       };
       const results = await Promise.all([
         post(desk.token, "booking", body),
@@ -107,7 +111,7 @@ test("StayFlow SQL Server integration", async (t) => {
             startsAt: future(0.01),
             endsAt: future(24),
             guests: 1,
-            mode: "DAY",
+            mode: "NIGHT",
             deposit: 100000,
             method: "CASH",
           }),
@@ -118,7 +122,7 @@ test("StayFlow SQL Server integration", async (t) => {
           customerId: customers[0].id,
           expectedEnd: future(24),
           guests: 1,
-          mode: "DAY",
+          mode: "NIGHT",
         };
         const k = key();
         const a = ok(await post(desk.token, "checkin", body, k)),
@@ -127,7 +131,7 @@ test("StayFlow SQL Server integration", async (t) => {
         stayId = a.id;
         const q = ok(await get(desk.token, "quote?stayId=" + stayId));
         assert.equal(q.paid, 100000);
-        assert.equal(q.total, 450000);
+        assert.equal(q.total, 330000);
       },
     );
     await t.test(
@@ -149,15 +153,26 @@ test("StayFlow SQL Server integration", async (t) => {
           ).status,
           403,
         );
-        const before = (await query(db, "SELECT id FROM HousekeepingTasks"))
-          .length;
+        const before = (
+          await query(db, (p) => ({
+            collection: "HousekeepingTasks",
+            filter: {},
+            project: { id: 1 },
+          }))
+        ).length;
         const ai = await request(app)
           .post("/api/ai/draft")
           .set("Authorization", "Bearer " + guestToken)
           .send({ stayId, text: "Chiều nay 3 giờ dọn phòng giúp tôi" });
         assert.equal(ai.status, 503);
         assert.equal(
-          (await query(db, "SELECT id FROM HousekeepingTasks")).length,
+          (
+            await query(db, (p) => ({
+              collection: "HousekeepingTasks",
+              filter: {},
+              project: { id: 1 },
+            }))
+          ).length,
           before,
         );
       },
@@ -199,7 +214,10 @@ test("StayFlow SQL Server integration", async (t) => {
         winner = result[0].status === 200 ? c1 : c2;
         const rows = await query(
           db,
-          "SELECT * FROM CleaningAssignments WHERE taskId=@id AND isActive=1",
+          (p) => ({
+            collection: "CleaningAssignments",
+            filter: { $and: [{ taskId: p.id }, { isActive: true }] },
+          }),
           { id: taskId },
         );
         assert.equal(rows.length, 1);
@@ -231,7 +249,7 @@ test("StayFlow SQL Server integration", async (t) => {
         );
         const task = await one(
           db,
-          "SELECT * FROM HousekeepingTasks WHERE id=@id",
+          (p) => ({ collection: "HousekeepingTasks", filter: { id: p.id } }),
           { id: taskId },
         );
         ok(
@@ -244,7 +262,10 @@ test("StayFlow SQL Server integration", async (t) => {
           (
             await query(
               db,
-              "SELECT * FROM CleaningAssignments WHERE taskId=@id AND isActive=1",
+              (p) => ({
+                collection: "CleaningAssignments",
+                filter: { $and: [{ taskId: p.id }, { isActive: true }] },
+              }),
               { id: taskId },
             )
           ).length,
@@ -259,9 +280,17 @@ test("StayFlow SQL Server integration", async (t) => {
         );
         assert.equal(
           (
-            await one(db, "SELECT status FROM HousekeepingTasks WHERE id=@id", {
-              id: taskId,
-            })
+            await one(
+              db,
+              (p) => ({
+                collection: "HousekeepingTasks",
+                filter: { id: p.id },
+                project: { status: 1 },
+              }),
+              {
+                id: taskId,
+              },
+            )
           ).status,
           "PENDING",
         );
@@ -282,7 +311,11 @@ test("StayFlow SQL Server integration", async (t) => {
           (
             await query(
               db,
-              "SELECT id FROM CleaningAssignments WHERE taskId=@id",
+              (p) => ({
+                collection: "CleaningAssignments",
+                filter: { taskId: p.id },
+                project: { id: 1 },
+              }),
               { id: taskId },
             )
           ).length,
@@ -327,7 +360,15 @@ test("StayFlow SQL Server integration", async (t) => {
       await transaction((tx) =>
         query(
           tx,
-          "UPDATE CleaningOffers SET expiresAt=DATEADD(second,-1,SYSUTCDATETIME()) WHERE id=@id",
+          (p) => ({
+            collection: "CleaningOffers",
+            filter: { id: p.id },
+            update: {
+              $set: {
+                expiresAt: new Date(new Date(new Date()).getTime() + -1000),
+              },
+            },
+          }),
           { id: offer.id },
         ),
       );
@@ -376,7 +417,12 @@ test("StayFlow SQL Server integration", async (t) => {
         assert.equal(closed.balance, 0);
         const count = await one(
           db,
-          "SELECT COUNT(*) count FROM Receipts WHERE stayId=@stayId",
+          (p) => ({
+            collection: "Receipts",
+            filter: { stayId: p.stayId },
+            count: true,
+            as: "count",
+          }),
           { stayId },
         );
         assert.equal(count.count, 2);
@@ -398,16 +444,27 @@ test("StayFlow SQL Server integration", async (t) => {
       "Checkout thu hồi guest, phòng bẩn và turnover gắn cycle",
       async () => {
         assert.equal((await get(guestToken, "tasks")).status, 401);
-        const stay = await one(db, "SELECT * FROM Stays WHERE id=@id", {
-          id: stayId,
-        });
-        const room = await one(db, "SELECT * FROM Rooms WHERE id=@id", {
-          id: stay.roomId,
-        });
+        const stay = await one(
+          db,
+          (p) => ({ collection: "Stays", filter: { id: p.id } }),
+          {
+            id: stayId,
+          },
+        );
+        const room = await one(
+          db,
+          (p) => ({ collection: "Rooms", filter: { id: p.id } }),
+          {
+            id: stay.roomId,
+          },
+        );
         assert.equal(room.cleanState, "DIRTY");
         const turnover = await one(
           db,
-          "SELECT * FROM HousekeepingTasks WHERE stayId=@id AND source='CHECKOUT'",
+          (p) => ({
+            collection: "HousekeepingTasks",
+            filter: { $and: [{ stayId: p.id }, { source: "CHECKOUT" }] },
+          }),
           { id: stayId },
         );
         assert.equal(turnover.cycle, room.cycle);
@@ -416,7 +473,10 @@ test("StayFlow SQL Server integration", async (t) => {
     await t.test("Turnover cũ không đánh dấu sạch chu kỳ mới", async () => {
       const turnover = await one(
         db,
-        "SELECT * FROM HousekeepingTasks WHERE stayId=@id AND source='CHECKOUT'",
+        (p) => ({
+          collection: "HousekeepingTasks",
+          filter: { $and: [{ stayId: p.id }, { source: "CHECKOUT" }] },
+        }),
         { id: stayId },
       );
       ok(
@@ -435,7 +495,11 @@ test("StayFlow SQL Server integration", async (t) => {
       await transaction((tx) =>
         query(
           tx,
-          "UPDATE Rooms SET cycle=cycle+1,cleanState='DIRTY' WHERE id=@id",
+          (p) => ({
+            collection: "Rooms",
+            filter: { id: p.id },
+            update: { $set: { cleanState: "DIRTY" }, $inc: { cycle: 1 } },
+          }),
           { id: turnover.roomId },
         ),
       );
@@ -447,9 +511,17 @@ test("StayFlow SQL Server integration", async (t) => {
       );
       assert.equal(
         (
-          await one(db, "SELECT cleanState FROM Rooms WHERE id=@id", {
-            id: turnover.roomId,
-          })
+          await one(
+            db,
+            (p) => ({
+              collection: "Rooms",
+              filter: { id: p.id },
+              project: { cleanState: 1 },
+            }),
+            {
+              id: turnover.roomId,
+            },
+          )
         ).cleanState,
         "DIRTY",
       );
@@ -470,9 +542,17 @@ test("StayFlow SQL Server integration", async (t) => {
         await transaction(dispatch);
         assert.equal(
           (
-            await query(db, "SELECT id FROM CleaningOffers WHERE taskId=@id", {
-              id: created.id,
-            })
+            await query(
+              db,
+              (p) => ({
+                collection: "CleaningOffers",
+                filter: { taskId: p.id },
+                project: { id: 1 },
+              }),
+              {
+                id: created.id,
+              },
+            )
           ).length,
           0,
         );
@@ -488,7 +568,7 @@ test("StayFlow SQL Server integration", async (t) => {
             startsAt: future(120),
             endsAt: future(144),
             guests: 1,
-            mode: "DAY",
+            mode: "NIGHT",
             deposit: 100000,
           }),
         );
@@ -510,7 +590,12 @@ test("StayFlow SQL Server integration", async (t) => {
         ok(await post(desk.token, "booking-cancel", { id: booking.id }));
         const returned = await one(
           db,
-          "SELECT SUM(amount) total FROM ReceiptReturns WHERE receiptId=@id",
+          (p) => ({
+            collection: "ReceiptReturns",
+            filter: { receiptId: p.id },
+            sum: "amount",
+            as: "total",
+          }),
           { id: r.id },
         );
         assert.equal(returned.total, 100000);
@@ -539,7 +624,7 @@ test("StayFlow SQL Server integration", async (t) => {
               customerId: customers[0].id,
               expectedEnd: future(20),
               guests: 1,
-              mode: "DAY",
+              mode: "NIGHT",
             }),
           );
           const q = ok(await get(desk.token, "quote?stayId=" + stay.id));
@@ -560,7 +645,12 @@ test("StayFlow SQL Server integration", async (t) => {
         assert.deepEqual(results.map((r) => r.status).sort(), [200, 409]);
         const uses = await one(
           db,
-          "SELECT COUNT(*) count FROM VoucherRedemptions WHERE voucherId=@id",
+          (p) => ({
+            collection: "VoucherRedemptions",
+            filter: { voucherId: p.id },
+            count: true,
+            as: "count",
+          }),
           { id: voucher.id },
         );
         assert.equal(uses.count, 1);
@@ -586,7 +676,7 @@ test("StayFlow SQL Server integration", async (t) => {
               startsAt: future(101),
               endsAt: future(105),
               guests: 1,
-              mode: "DAY",
+              mode: "NIGHT",
             })
           ).status,
           409,
@@ -609,21 +699,31 @@ test("StayFlow SQL Server integration", async (t) => {
         );
         ok(await post(admin.token, "user", { ...u, enabled: false }));
         assert.equal((await get(c2.token, "offers")).status, 401);
-        ok(await post(admin.token, "user", { ...u, enabled: true }));
+        assert.equal(
+          (await post(admin.token, "user", { ...u, enabled: true })).status,
+          400,
+        );
       },
     );
     await t.test(
       "Outbox lưu bền vững và worker chạy lại không tạo trùng",
       async () => {
         await tick();
-        const count = await one(db, "SELECT COUNT(*) count FROM Notifications");
+        const count = await one(db, (p) => ({
+          collection: "Notifications",
+          filter: {},
+          count: true,
+          as: "count",
+        }));
         await tick();
-        const again = await one(db, "SELECT COUNT(*) count FROM Notifications");
+        const again = await one(db, (p) => ({
+          collection: "Notifications",
+          filter: {},
+          count: true,
+          as: "count",
+        }));
         assert(again.count >= count.count);
-        const duplicate = await query(
-          db,
-          "SELECT eventKey,userId,COUNT(*) count FROM Notifications GROUP BY eventKey,userId HAVING COUNT(*)>1",
-        );
+        const duplicate = await query(db, "duplicateNotifications");
         assert.equal(duplicate.length, 0);
       },
     );

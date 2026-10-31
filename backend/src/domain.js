@@ -39,6 +39,26 @@ export const policy = {
   graceMinutes: 15,
   extraHour: 50000,
 };
+// Canonical identity shared by phone lookup and transactional booking/check-in.
+export function normalizePhone(value) {
+  let phone = String(value || "").trim().replace(/[ ()-]/g, "");
+  if (phone.startsWith("0084")) phone = "0" + phone.slice(4);
+  else if (phone.startsWith("+84")) phone = "0" + phone.slice(3);
+  assert(/^\+?\d{8,15}$/.test(phone), "Số điện thoại không hợp lệ", 400);
+  return phone;
+}
+export function expectedDeparture(start, mode) {
+  const at = new Date(start);
+  assert(Number.isFinite(at.getTime()), "Giờ nhận phòng không hợp lệ", 400);
+  if (mode === "HOUR") return new Date(at.getTime() + 3600000);
+  if (mode === "DAY") return new Date(at.getTime() + 86400000); // historical stays
+  assert(mode === "NIGHT", "Hình thức thuê không hợp lệ", 400);
+  const local = new Date(at.getTime() + 7 * 3600000);
+  local.setUTCHours(12, 0, 0, 0);
+  if (local.getTime() - 7 * 3600000 <= at.getTime())
+    local.setUTCDate(local.getUTCDate() + 1);
+  return new Date(local.getTime() - 7 * 3600000);
+}
 export function priceRoom(rate, start, end, mode) {
   const minutes = (new Date(end) - new Date(start)) / 60000;
   assert(
@@ -63,18 +83,20 @@ export function priceRoom(rate, start, end, mode) {
     base = units * rate.day;
   } else {
     assert(mode === "NIGHT", "Hình thức thuê không hợp lệ", 400);
-    units = 1;
-    base = rate.night;
-    const local = new Date(new Date(start).getTime() + 7 * 3600000);
-    local.setUTCHours(12, 0, 0, 0);
-    if (local.getTime() - 7 * 3600000 <= new Date(start).getTime())
-      local.setUTCDate(local.getUTCDate() + 1);
-    const due = local.getTime() - 7 * 3600000;
-    const late = Math.max(
-      0,
-      (new Date(end).getTime() - due) / 60000 - rate.graceMinutes,
+    const due = expectedDeparture(start, "NIGHT").getTime();
+    const extraMinutes = Math.max(0, (new Date(end).getTime() - due) / 60000);
+    const fullNights = Math.floor(extraMinutes / 1440);
+    units = 1 + fullNights;
+    const lateHours = Math.ceil(
+      Math.max(0, extraMinutes - fullNights * 1440 - rate.graceMinutes) / 60,
     );
-    surcharge = Math.ceil(late / 60) * rate.extraHour;
+    surcharge = lateHours * rate.extraHour;
+    // A partial extra day never costs more than one additional night.
+    if (lateHours && surcharge >= rate.night) {
+      units += 1;
+      surcharge = 0;
+    }
+    base = units * rate.night;
   }
   const total = base + surcharge;
   assert(

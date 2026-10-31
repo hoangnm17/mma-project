@@ -1,5 +1,7 @@
 # API contract
 
+> **Bản tra cứu hiện hành, đối chiếu source local ngày 31/10/2026:** [90 API với input/output, quyền và màn hình sử dụng](api-reference-current.md), [bàn giao BE–FE mobile cho 2 người](team-handoff.md), [Postman collection](stayflow-team.postman_collection.json). Nội dung bên dưới là contract cũ, chưa cập nhật các thay đổi về HOUR/NIGHT, dọn trực tiếp, FOOD/SPECIAL, checkout và quyền báo cáo; dùng tài liệu hiện hành khi phát triển.
+
 Base `/api`. JSON UTF-8, UTC ISO-8601 có offset ở input. Auth `Authorization: Bearer <token>`. Errors `{error, fields?}`: 400 validation, 401 token/khóa tài khoản, 403 quyền, 404 không có resource, 409 xung đột, 429 giới hạn, 503 AI/database không khả dụng. SQL details/secret không trả client.
 
 ## Authentication

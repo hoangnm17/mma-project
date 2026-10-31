@@ -26,7 +26,11 @@ export async function authenticateToken(token) {
   if (actor.kind === "staff") {
     const user = await one(
       db,
-      "SELECT id,name,role,enabled,authVersion FROM Users WHERE id=@id",
+      (p) => ({
+        collection: "Users",
+        filter: { id: p.id },
+        project: { id: 1, name: 1, role: 1, enabled: 1, authVersion: 1, canAccessSpecialServices: 1 },
+      }),
       { id: actor.id },
     );
     assert(
@@ -37,11 +41,7 @@ export async function authenticateToken(token) {
     return { ...actor, ...user };
   }
   assert(actor.kind === "guest", "Phiên không hợp lệ", 401);
-  const access = await one(
-    db,
-    "SELECT g.id FROM GuestAccessTokens g JOIN Stays s ON s.id=g.stayId WHERE g.id=@id AND g.revoked=0 AND g.expiresAt>SYSUTCDATETIME() AND s.status='OPEN'",
-    { id: actor.accessId },
-  );
+  const access = await one(db, "validGuest", { id: actor.accessId });
   assert(access, "Link khách đã hết hiệu lực", 401);
   return actor;
 }
@@ -57,9 +57,13 @@ export async function authenticate(req, res, next) {
 }
 export async function login(username, password) {
   return transaction(async (tx) => {
-    const user = await one(tx, "SELECT * FROM Users WHERE username=@username", {
-      username,
-    });
+    const user = await one(
+      tx,
+      (p) => ({ collection: "Users", filter: { username: p.username } }),
+      {
+        username,
+      },
+    );
     assert(
       user &&
         (await bcrypt.compare(password, user.passwordHash)) &&
@@ -74,7 +78,15 @@ async function session(tx, user) {
   const refresh = randomBytes(32).toString("base64url");
   await query(
     tx,
-    "INSERT RefreshSessions(id,userId,tokenHash,expiresAt) VALUES(@id,@userId,@tokenHash,@expiresAt)",
+    (p) => ({
+      collection: "RefreshSessions",
+      insert: {
+        id: p.id,
+        userId: p.userId,
+        tokenHash: p.tokenHash,
+        expiresAt: p.expiresAt,
+      },
+    }),
     {
       id: id(),
       userId: user.id,
@@ -82,7 +94,8 @@ async function session(tx, user) {
       expiresAt: new Date(Date.now() + 7 * 86400000),
     },
   );
-  const publicUser = { id: user.id, name: user.name, role: user.role };
+  const publicUser = { id: user.id, name: user.name, role: user.role,
+    canAccessSpecialServices: user.role === "Admin" || user.canAccessSpecialServices === true };
   return {
     user: publicUser,
     token: sign({
@@ -95,25 +108,25 @@ async function session(tx, user) {
 }
 export async function refresh(refreshToken) {
   return transaction(async (tx) => {
-    const old = await one(
-      tx,
-      "SELECT r.id sessionId,u.* FROM RefreshSessions r JOIN Users u ON u.id=r.userId WHERE r.tokenHash=@tokenHash AND r.revoked=0 AND r.expiresAt>SYSUTCDATETIME() AND u.enabled=1",
-      { tokenHash: hash(refreshToken) },
-    );
+    const old = await one(tx, "refreshUser", { tokenHash: hash(refreshToken) });
     assert(old, "Phiên làm mới không hợp lệ", 401);
-    await query(tx, "UPDATE RefreshSessions SET revoked=1 WHERE id=@id", {
-      id: old.sessionId,
-    });
+    await query(
+      tx,
+      (p) => ({
+        collection: "RefreshSessions",
+        filter: { id: p.id },
+        update: { $set: { revoked: true } },
+      }),
+      {
+        id: old.sessionId,
+      },
+    );
     return session(tx, old);
   });
 }
 export async function exchange(token) {
   return transaction(async (tx) => {
-    const access = await one(
-      tx,
-      "SELECT g.*,r.number FROM GuestAccessTokens g JOIN Stays s ON s.id=g.stayId JOIN Rooms r ON r.id=s.roomId WHERE g.tokenHash=@tokenHash AND g.revoked=0 AND g.expiresAt>SYSUTCDATETIME() AND s.status='OPEN'",
-      { tokenHash: hash(token) },
-    );
+    const access = await one(tx, "exchangeGuest", { tokenHash: hash(token) });
     assert(access, "Link không hợp lệ hoặc đã hết hạn", 401);
     return {
       token: sign(

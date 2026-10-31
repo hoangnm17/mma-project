@@ -1,10 +1,23 @@
 # EAS và Android APK
 
-## Build trong team — cập nhật 30/10/2026
+## Build cloud HTTPS — 30/10/2026
+
+Profile `preview-cloud` dùng `https://3.26.69.81.sslip.io`, DEMO_LAN=false, internal APK trên cùng project/team/keystore. Android versionCode2; `npm run build:apk` hiện chọn profile này. API /health đã được kiểm tra HTTPS/status ok. Lint/cú pháp và public config đúng team/cleartext false đạt. Build **FINISHED**, ID `69ead6f9-e82c-4483-9dd3-5723a144c718`.
+
+- [APK cloud HTTPS](https://expo.dev/artifacts/eas/NSmxhawpeEXqTFp8b-gd5jyJwV38KxrkoLHmg1pHtZQ.apk) và [build EAS](https://expo.dev/accounts/hoangnm17s-team/projects/stayflow-mma/builds/69ead6f9-e82c-4483-9dd3-5723a144c718).
+- Local: artifacts/StayFlow-cloud.apk, 99.910.738 bytes, SHA256 `988B6427F0A77C9EB8B7D17606238AC1D4B714FFE7EDF8A8A53923F4CCE13B7E`.
+- Verify chữ ký pass và SHA256 certificate giống APK LAN: `3a1776d5801a9e539d075ed9e022f766beac8f03b64302f70cc704702ec02199`; versionCode2 cho phép cập nhật bản code1 cùng package.
+- Kiểm tra APK thật: JS bundle có URL HTTPS cloud, không còn URL LAN cũ; embedded app.config đúng team/project/code2; manifest usesCleartextTraffic=false.
+- EAS remote Doctor21/21; Android build thành công. Team Free sau build Android4/15, còn11, overage0cents.
+- Chưa chạy full native login/business workflow với credentials cloud hoặc Android vật lý. API health200 và rooms401 khi chưa đăng nhập đã xác minh từ máy phát triển. Nếu IP EC2 thay đổi, hostname gắn IP này không tự đổi theo máy.
+
+Các thông tin APK LAN bên dưới là bản cũ code1.
+
+## Build LAN trong team — lịch sử 30/10/2026
 
 Đã kiểm tra trực tiếp `eas account:usage hoangnm17s-team --json`: plan Free, Android **2/15** đã dùng, còn **13 lượt** trước lần build này, không có overage/add-on trả phí. User hiện có quyền Owner trên team.
 
-Chuyển project cá nhân yêu cầu Expo sudo reauthentication, nên không thực hiện được bằng phiên CLI hiện tại. Giữ nguyên project cá nhân và tạo project build riêng [@hoangnm17s-team/stayflow-mma](https://expo.dev/accounts/hoangnm17s-team/projects/stayflow-mma), ID thật **431a1384-6506-47bd-9c12-b73faeafceee**. `config/app-base.json` vẫn giữ ID cá nhân; `preview-team` truyền EAS_OWNER/EAS_PROJECT_ID riêng qua app.config.js. Không overwrite hoặc relink project khác của team.
+Chuyển project cá nhân yêu cầu Expo sudo reauthentication, nên không thực hiện được bằng phiên CLI hiện tại. Giữ nguyên project cá nhân và tạo project build riêng [@hoangnm17s-team/stayflow-mma](https://expo.dev/accounts/hoangnm17s-team/projects/stayflow-mma), ID thật **431a1384-6506-47bd-9c12-b73faeafceee**. `frontend/config/app-base.json` vẫn giữ ID cá nhân; `preview-team` truyền EAS_OWNER/EAS_PROJECT_ID riêng qua app.config.js. Không overwrite hoặc relink project khác của team.
 
 Lệnh khuyến nghị:
 
@@ -12,7 +25,7 @@ Lệnh khuyến nghị:
 npm run build:apk
 ```
 
-Script `scripts/build-apk.cjs` tự truyền owner/projectId từ profile team và chạy EAS. Khi gọi CLI trực tiếp, cần cùng biến môi trường ở lúc CLI đọc config:
+Script `frontend/scripts/build-apk.cjs` tự truyền owner/projectId từ profile team và chạy EAS. Khi gọi CLI trực tiếp, cần cùng biến môi trường ở lúc CLI đọc config:
 
 ```powershell
 $env:EAS_OWNER='hoangnm17s-team'
@@ -38,13 +51,13 @@ APK là release có JS bundle, dùng backend LAN `http://192.168.66.150:4000`; m
 ## Cấu hình thực
 
 - Expo SDK 57, JavaScript, Android package `vn.stayflow.mobile`.
-- Dynamic `app.config.js` đọc `config/app-base.json`; đã giữ ID được EAS trả thật: `56a8c5e0-f3a8-4fdb-8562-647374f87979`.
+- Dynamic `frontend/app.config.js` đọc `frontend/config/app-base.json`; đã giữ ID được EAS trả thật: `56a8c5e0-f3a8-4fdb-8562-647374f87979`.
 - Project [@hoangnm17/stayflow-mma](https://expo.dev/accounts/hoangnm17/projects/stayflow-mma). Đây là project URL, **không phải build/APK URL**.
 - development: dev-client, internal APK. preview: internal release APK, không cần Metro. production: AAB và chỉ API HTTPS.
-- Icon/splash StayFlow từ `assets/stayflow.svg`, PNG trong assets/images/.
+- Icon/splash StayFlow từ `frontend/assets/stayflow.svg`, PNG trong frontend/assets/images/.
 - Không tạo/sửa android/ hoặc ios/ thủ công; dùng CNG/config plugins.
 
-Preview hiện cấu hình API LAN thật `http://192.168.66.150:4000`, `DEMO_LAN=true`; chỉ chấp nhận HTTP IPv4 mạng riêng. Plugin usesCleartextTraffic chỉ bật cho demo; production phải HTTPS. Đổi Wi-Fi/IP phải cập nhật eas.json rồi build lại. Không dùng dữ liệu/credential thật qua demo HTTP.
+Preview hiện cấu hình API LAN thật `http://192.168.66.150:4000`, `DEMO_LAN=true`; chỉ chấp nhận HTTP IPv4 mạng riêng. Plugin usesCleartextTraffic chỉ bật cho demo; production phải HTTPS. Đổi Wi-Fi/IP phải cập nhật frontend/eas.json rồi build lại. Không dùng dữ liệu/credential thật qua demo HTTP.
 
 ## Kiểm tra trước build
 

@@ -1,0 +1,49 @@
+{
+  "expo": {
+    "name": "StayFlow",
+    "slug": "stayflow-mma",
+    "version": "1.0.1",
+    "orientation": "portrait",
+    "icon": "./assets/images/stayflow-icon.png",
+    "scheme": "stayflow",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "icon": "./assets/images/stayflow-icon.png"
+    },
+    "android": {
+      "versionCode": 3,
+      "adaptiveIcon": {
+        "backgroundColor": "#102D46",
+        "foregroundImage": "./assets/images/stayflow-icon.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "output": "static",
+      "favicon": "./assets/images/stayflow-icon.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#102D46",
+          "image": "./assets/images/stayflow-icon.png",
+          "imageWidth": 160
+        }
+      ],
+      "expo-secure-store",
+      "expo-sharing"
+    ],
+    "experiments": {
+      "typedRoutes": false,
+      "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "56a8c5e0-f3a8-4fdb-8562-647374f87979"
+      }
+    }
+  }
+}

@@ -4,7 +4,7 @@ Push-Location (Split-Path $PSScriptRoot -Parent)
 try {
   if (!(Test-Path backend/.env)) { throw 'Tạo backend/.env từ backend/.env.example và điền secret trước.' }
   docker compose -p stayflow-demo --env-file backend/.env up -d --wait
-  if ($LASTEXITCODE -ne 0) { throw 'SQL Server chưa sẵn sàng.' }
+  if ($LASTEXITCODE -ne 0) { throw 'MongoDB replica set chưa sẵn sàng.' }
   Push-Location backend
   try {
     & $Node --env-file=.env scripts/migrate.js

@@ -1,13 +1,14 @@
-const { defineConfig } = require("eslint/config");
-const expoConfig = require("eslint-config-expo/flat");
-module.exports = defineConfig([
-  expoConfig,
+const frontendConfig = require("./frontend/eslint.config.js");
+const reactVersion = require("./frontend/node_modules/react/package.json").version;
+module.exports = [
+  ...frontendConfig,
+  { settings: { react: { version: reactVersion } } },
   {
     ignores: [
-      "dist/**",
+      "**/dist/**",
+      "**/.expo/**",
       "artifacts/**",
-      "backend/node_modules/**",
-      "node_modules/**",
+      "**/node_modules/**",
     ],
   },
   {
@@ -24,4 +25,4 @@ module.exports = defineConfig([
     },
     rules: { "import/no-unresolved": "off" },
   },
-]);
+];

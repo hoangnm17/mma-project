@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { one, query } from "../db.js";
+import { first, update } from "../mongo-store.js";
 import {
   id,
   audit,
@@ -29,9 +30,13 @@ const taskSchema = z.object({
 export async function createTask(tx, actor, raw, turnover = false) {
   const b = taskSchema.parse(raw);
   await guestStay(tx, actor, b.stayId);
-  const stay = await one(tx, "SELECT * FROM Stays WHERE id=@id", {
-    id: b.stayId,
-  });
+  const stay = await one(
+    tx,
+    (p) => ({ collection: "Stays", filter: { id: p.id } }),
+    {
+      id: b.stayId,
+    },
+  );
   assert(stay, "Không có lượt lưu trú", 404);
   assert(
     turnover
@@ -53,7 +58,12 @@ export async function createTask(tx, actor, raw, turnover = false) {
   );
   const service = await one(
     tx,
-    "SELECT * FROM Services WHERE code=@code AND cleaning=1 AND enabled=1",
+    (p) => ({
+      collection: "Services",
+      filter: {
+        $and: [{ code: p.code }, { cleaning: true }, { enabled: true }],
+      },
+    }),
     { code: b.serviceCode },
   );
   assert(service, "Dịch vụ dọn phòng không hoạt động", 400);
@@ -62,7 +72,19 @@ export async function createTask(tx, actor, raw, turnover = false) {
     assert(
       !(await one(
         tx,
-        "SELECT id FROM HousekeepingTasks WHERE stayId=@stayId AND serviceId=@serviceId AND status NOT IN ('COMPLETED','CANCELLED') AND windowStart<@end AND windowEnd>@start",
+        (p) => ({
+          collection: "HousekeepingTasks",
+          filter: {
+            $and: [
+              { stayId: p.stayId },
+              { serviceId: p.serviceId },
+              { status: { $nin: ["COMPLETED", "CANCELLED"] } },
+              { windowStart: { $lt: p.end } },
+              { windowEnd: { $gt: p.start } },
+            ],
+          },
+          project: { id: 1 },
+        }),
         { stayId: b.stayId, serviceId: service.id, start, end },
       )),
       "Đã có yêu cầu cùng loại trong khung giờ",
@@ -70,7 +92,25 @@ export async function createTask(tx, actor, raw, turnover = false) {
   const taskId = id();
   await query(
     tx,
-    "INSERT HousekeepingTasks(id,roomId,stayId,serviceId,source,windowStart,windowEnd,status,checklistJson,priceSnapshot,entryConsent,notes,cycle,dedupeKey) VALUES(@id,@roomId,@stayId,@serviceId,@source,@start,@end,'PENDING',@checklistJson,@price,@entryConsent,@notes,@cycle,@dedupeKey)",
+    (p) => ({
+      collection: "HousekeepingTasks",
+      insert: {
+        id: p.id,
+        roomId: p.roomId,
+        stayId: p.stayId,
+        serviceId: p.serviceId,
+        source: p.source,
+        windowStart: p.start,
+        windowEnd: p.end,
+        status: "PENDING",
+        checklistJson: p.checklistJson,
+        priceSnapshot: p.price,
+        entryConsent: p.entryConsent,
+        notes: p.notes,
+        cycle: p.cycle,
+        dedupeKey: p.dedupeKey,
+      },
+    }),
     {
       ...b,
       id: taskId,
@@ -98,21 +138,30 @@ export async function createTask(tx, actor, raw, turnover = false) {
   return { id: taskId, status: "PENDING" };
 }
 async function eligible(tx, task) {
-  const room = await one(tx, "SELECT zone FROM Rooms WHERE id=@id", {
-    id: task.roomId,
-  });
-  const service = await one(tx, "SELECT code FROM Services WHERE id=@id", {
-    id: task.serviceId,
-  });
-  const at = new Date();
-  const cleaners = await query(
+  const room = await one(
     tx,
-    `SELECT c.*,u.name,COALESCE((SELECT SUM(DATEDIFF(minute,a.startedAt,a.closedAt)) FROM CleaningAssignments a WHERE a.cleanerId=c.userId AND a.startedAt>=(SELECT MIN(s.startsAt) FROM CleanerShifts s WHERE s.userId=c.userId AND s.startsAt<=@at AND s.endsAt>@at)),0) workMinutes
-    FROM CleanerProfiles c JOIN Users u ON u.id=c.userId WHERE u.enabled=1 AND u.role='Cleaner' AND c.accepting=1
-    AND EXISTS(SELECT 1 FROM CleanerShifts s WHERE s.userId=c.userId AND s.startsAt<=@at AND s.endsAt>@at)
-    AND NOT EXISTS(SELECT 1 FROM CleaningAssignments a WHERE a.cleanerId=c.userId AND a.isActive=1)`,
-    { at },
+    (p) => ({
+      collection: "Rooms",
+      filter: { id: p.id },
+      project: { zone: 1 },
+    }),
+    {
+      id: task.roomId,
+    },
   );
+  const service = await one(
+    tx,
+    (p) => ({
+      collection: "Services",
+      filter: { id: p.id },
+      project: { code: 1 },
+    }),
+    {
+      id: task.serviceId,
+    },
+  );
+  const at = new Date();
+  const cleaners = await query(tx, "eligibleCleaners", { at });
   return rankCleaners(
     cleaners.filter((c) => JSON.parse(c.skills).includes(service.code)),
     room.zone,
@@ -123,19 +172,23 @@ export async function dispatch(tx) {
   const at = new Date();
   await query(
     tx,
-    "UPDATE CleaningOffers SET status='EXPIRED' WHERE status='PENDING' AND expiresAt<=@at",
+    (p) => ({
+      collection: "CleaningOffers",
+      filter: { $and: [{ status: "PENDING" }, { expiresAt: { $lte: p.at } }] },
+      update: { $set: { status: "EXPIRED" } },
+    }),
     { at },
   );
-  const tasks = await query(
-    tx,
-    "SELECT t.* FROM HousekeepingTasks t JOIN Stays s ON s.id=t.stayId WHERE t.status='PENDING' AND t.windowStart<=DATEADD(minute,15,@at) AND t.nextDispatchAt<=@at AND (s.dnd=0 OR t.source='CHECKOUT')",
-    { at },
-  );
+  const tasks = await query(tx, "dispatchTasks", { at });
   for (const task of tasks) {
     if (
       await one(
         tx,
-        "SELECT id FROM CleaningOffers WHERE taskId=@id AND status='PENDING'",
+        (p) => ({
+          collection: "CleaningOffers",
+          filter: { $and: [{ taskId: p.id }, { status: "PENDING" }] },
+          project: { id: 1 },
+        }),
         { id: task.id },
       )
     )
@@ -143,7 +196,18 @@ export async function dispatch(tx) {
     if (task.offerRound >= 3 || new Date(task.windowEnd) <= at) {
       await query(
         tx,
-        "UPDATE HousekeepingTasks SET escalated=1,nextDispatchAt=DATEADD(day,7,SYSUTCDATETIME()) WHERE id=@id",
+        (p) => ({
+          collection: "HousekeepingTasks",
+          filter: { id: p.id },
+          update: {
+            $set: {
+              escalated: true,
+              nextDispatchAt: new Date(
+                new Date(new Date()).getTime() + 604800000,
+              ),
+            },
+          },
+        }),
         { id: task.id },
       );
       await notifyDesk(
@@ -159,7 +223,16 @@ export async function dispatch(tx) {
     if (!candidates.length) {
       await query(
         tx,
-        "UPDATE HousekeepingTasks SET escalated=1,nextDispatchAt=DATEADD(second,60,SYSUTCDATETIME()) WHERE id=@id",
+        (p) => ({
+          collection: "HousekeepingTasks",
+          filter: { id: p.id },
+          update: {
+            $set: {
+              escalated: true,
+              nextDispatchAt: new Date(new Date(new Date()).getTime() + 60000),
+            },
+          },
+        }),
         { id: task.id },
       );
       await notifyDesk(
@@ -174,7 +247,11 @@ export async function dispatch(tx) {
     const round = task.offerRound + 1;
     await query(
       tx,
-      "UPDATE HousekeepingTasks SET offerRound=@round,escalated=0 WHERE id=@id",
+      (p) => ({
+        collection: "HousekeepingTasks",
+        filter: { id: p.id },
+        update: { $set: { offerRound: p.round, escalated: false } },
+      }),
       { id: task.id, round },
     );
     for (const c of candidates) {
@@ -184,7 +261,19 @@ export async function dispatch(tx) {
       );
       await query(
         tx,
-        "INSERT CleaningOffers(id,taskId,cleanerId,round,taskVersion,expiresAt,status,scoreBreakdown) VALUES(@id,@taskId,@cleanerId,@round,@version,@expiresAt,'PENDING',@breakdown)",
+        (p) => ({
+          collection: "CleaningOffers",
+          insert: {
+            id: p.id,
+            taskId: p.taskId,
+            cleanerId: p.cleanerId,
+            round: p.round,
+            taskVersion: p.version,
+            expiresAt: p.expiresAt,
+            status: "PENDING",
+            scoreBreakdown: p.breakdown,
+          },
+        }),
         {
           id: offerId,
           taskId: task.id,
@@ -207,19 +296,59 @@ export async function dispatch(tx) {
   }
 }
 export async function housekeepingAction(tx, actor, action, raw) {
+  if (["task-desk-start", "task-desk-complete"].includes(action)) {
+    await staff(tx, actor, desk);
+    const body = z.object({ taskId: uuid, checklist: z.array(z.string()).max(20).optional(), reason: z.string().max(500).optional() }).parse(raw);
+    const task = await one(tx, "taskService", { id: body.taskId });
+    assert(task, "Không có công việc", 404);
+    const stay = await first(tx, "Stays", { id: task.stayId });
+    const room = await first(tx, "Rooms", { id: task.roomId });
+    assert(room?.cycle === task.cycle, "Công việc thuộc lượt sử dụng phòng cũ", 409);
+    assert(task.source === "CHECKOUT" ? stay?.status === "CLOSED" && !(await first(tx, "Stays", { roomId: task.roomId, status: "OPEN" })) : stay?.status === "OPEN" && !stay.dnd,
+      "Lượt lưu trú không cho phép dọn phòng", 409);
+    if (task.status === "COMPLETED") return { ok: true };
+    if (action === "task-desk-start") {
+      assert(["PENDING", "ASSIGNED", "IN_PROGRESS"].includes(task.status), "Công việc không thể bắt đầu", 409);
+      assert(task.source === "CHECKOUT" || (new Date() >= new Date(task.windowStart) && new Date() < new Date(task.windowEnd)), "Ngoài khung giờ khách cho phép", 409);
+      const active = await first(tx, "CleaningAssignments", { taskId: task.id, isActive: true });
+      assert(!active || body.reason?.trim().length >= 5, "Cần lý do tiếp nhận công việc đang giao cho nhân viên", 400);
+      if (active) await closeActive(tx, task.id, "REASSIGNED");
+      await revoke(tx, task.id);
+      await update(tx, "HousekeepingTasks", { id: task.id }, { $set: { status: "IN_PROGRESS", deskStartedBy: actor.id, deskStartedAt: new Date() }, $inc: { version: 1 } });
+      if (task.source === "CHECKOUT" && task.fullClean) await update(tx, "Rooms", { id: room.id, cycle: task.cycle }, { $set: { cleanState: "CLEANING" } });
+      await audit(tx, actor, action, task.id, { reason: body.reason });
+      return { ok: true };
+    }
+    assert(task.status === "IN_PROGRESS" && task.deskStartedBy, "Cần bắt đầu dọn trực tiếp trước", 409);
+    const required = JSON.parse(task.checklistJson);
+    assert(required.length === body.checklist?.length && required.every((item) => body.checklist.includes(item)), "Cần hoàn thành toàn bộ checklist", 400);
+    await update(tx, "HousekeepingTasks", { id: task.id }, { $set: { status: "AWAITING_VERIFICATION" } });
+    return housekeepingAction(tx, actor, "task-verify", { taskId: task.id, passed: true });
+  }
   if (action === "task-create") return createTask(tx, actor, raw);
   if (action === "cleaner-availability") {
     await staff(tx, actor, ["Cleaner"]);
     const b = z.object({ accepting: z.boolean() }).parse(raw);
     await query(
       tx,
-      "UPDATE CleanerProfiles SET accepting=@accepting WHERE userId=@id",
+      (p) => ({
+        collection: "CleanerProfiles",
+        filter: { userId: p.id },
+        update: { $set: { accepting: p.accepting } },
+      }),
       { accepting: b.accepting, id: actor.id },
     );
-    await query(
-      tx,
-      "UPDATE HousekeepingTasks SET escalated=0,nextDispatchAt=SYSUTCDATETIME() WHERE status='PENDING' AND offerRound<3 AND windowEnd>SYSUTCDATETIME()",
-    );
+    await query(tx, (p) => ({
+      collection: "HousekeepingTasks",
+      filter: {
+        $and: [
+          { status: "PENDING" },
+          { offerRound: { $lt: 3 } },
+          { windowEnd: { $gt: new Date() } },
+        ],
+      },
+      update: { $set: { escalated: false, nextDispatchAt: new Date() } },
+    }));
     return { ok: true };
   }
   if (action === "offer-accept" || action === "offer-reject") {
@@ -227,21 +356,31 @@ export async function housekeepingAction(tx, actor, action, raw) {
     const b = z.object({ offerId: uuid }).parse(raw);
     const offer = await one(
       tx,
-      "SELECT * FROM CleaningOffers WHERE id=@id AND cleanerId=@cleanerId",
+      (p) => ({
+        collection: "CleaningOffers",
+        filter: { $and: [{ id: p.id }, { cleanerId: p.cleanerId }] },
+      }),
       { id: b.offerId, cleanerId: actor.id },
     );
     assert(offer, "Không có lời mời", 404);
     if (action === "offer-accept" && offer.status === "ACCEPTED") {
       const assignment = await one(
         tx,
-        "SELECT * FROM CleaningAssignments WHERE offerId=@id",
+        (p) => ({
+          collection: "CleaningAssignments",
+          filter: { offerId: p.id },
+        }),
         { id: offer.id },
       );
       return { id: assignment.id, taskId: assignment.taskId };
     }
-    const task = await one(tx, "SELECT * FROM HousekeepingTasks WHERE id=@id", {
-      id: offer.taskId,
-    });
+    const task = await one(
+      tx,
+      (p) => ({ collection: "HousekeepingTasks", filter: { id: p.id } }),
+      {
+        id: offer.taskId,
+      },
+    );
     assert(
       offer.status === "PENDING" &&
         new Date(offer.expiresAt) > new Date() &&
@@ -252,7 +391,11 @@ export async function housekeepingAction(tx, actor, action, raw) {
     if (action === "offer-reject") {
       await query(
         tx,
-        "UPDATE CleaningOffers SET status='REJECTED' WHERE id=@id",
+        (p) => ({
+          collection: "CleaningOffers",
+          filter: { id: p.id },
+          update: { $set: { status: "REJECTED" } },
+        }),
         { id: offer.id },
       );
       return { ok: true };
@@ -261,9 +404,13 @@ export async function housekeepingAction(tx, actor, action, raw) {
       (await eligible(tx, task)).some((c) => c.userId === actor.id),
       "Nhân viên đang bận, ngoài ca hoặc không còn phù hợp",
     );
-    const stay = await one(tx, "SELECT * FROM Stays WHERE id=@id", {
-      id: task.stayId,
-    });
+    const stay = await one(
+      tx,
+      (p) => ({ collection: "Stays", filter: { id: p.id } }),
+      {
+        id: task.stayId,
+      },
+    );
     assert(
       (!stay.dnd && stay.status === "OPEN") || task.source === "CHECKOUT",
       "Lượt ở không cho phép thực hiện",
@@ -284,11 +431,7 @@ export async function housekeepingAction(tx, actor, action, raw) {
       comment: z.string().max(500).optional(),
     })
     .parse(raw);
-  const task = await one(
-    tx,
-    "SELECT t.*,s.code,s.fullClean FROM HousekeepingTasks t JOIN Services s ON s.id=t.serviceId WHERE t.id=@id",
-    { id: b.taskId },
-  );
+  const task = await one(tx, "taskService", { id: b.taskId });
   assert(task, "Không có công việc", 404);
   if (action === "task-cancel" || action === "task-review")
     await guestStay(tx, actor, task.stayId);
@@ -303,7 +446,11 @@ export async function housekeepingAction(tx, actor, action, raw) {
     await closeActive(tx, task.id, "CANCELLED");
     await query(
       tx,
-      "UPDATE HousekeepingTasks SET status='CANCELLED',version=version+1 WHERE id=@id",
+      (p) => ({
+        collection: "HousekeepingTasks",
+        filter: { id: p.id },
+        update: { $set: { status: "CANCELLED" }, $inc: { version: 1 } },
+      }),
       { id: task.id },
     );
     await revoke(tx, task.id);
@@ -318,19 +465,40 @@ export async function housekeepingAction(tx, actor, action, raw) {
       400,
     );
     assert(
-      !(await one(tx, "SELECT taskId FROM CleaningReviews WHERE taskId=@id", {
-        id: task.id,
-      })),
+      !(await one(
+        tx,
+        (p) => ({
+          collection: "CleaningReviews",
+          filter: { taskId: p.id },
+          project: { taskId: 1 },
+        }),
+        {
+          id: task.id,
+        },
+      )),
       "Đã đánh giá",
     );
     const last = await one(
       tx,
-      "SELECT TOP 1 * FROM CleaningAssignments WHERE taskId=@id AND status='SUBMITTED' ORDER BY submittedAt DESC",
+      (p) => ({
+        collection: "CleaningAssignments",
+        filter: { $and: [{ taskId: p.id }, { status: "SUBMITTED" }] },
+        sort: { submittedAt: -1 },
+        limit: 1,
+      }),
       { id: task.id },
     );
     await query(
       tx,
-      "INSERT CleaningReviews(taskId,cleanerId,rating,comment) VALUES(@taskId,@cleanerId,@rating,@comment)",
+      (p) => ({
+        collection: "CleaningReviews",
+        insert: {
+          taskId: p.taskId,
+          cleanerId: p.cleanerId,
+          rating: p.rating,
+          comment: p.comment,
+        },
+      }),
       {
         taskId: task.id,
         cleanerId: last.cleanerId,
@@ -340,7 +508,11 @@ export async function housekeepingAction(tx, actor, action, raw) {
     );
     await query(
       tx,
-      "UPDATE CleanerProfiles SET ratingSum=ratingSum+@rating,ratingCount=ratingCount+1 WHERE userId=@id",
+      (p) => ({
+        collection: "CleanerProfiles",
+        filter: { userId: p.id },
+        update: { $inc: { ratingSum: p.rating, ratingCount: 1 } },
+      }),
       { id: last.cleanerId, rating: b.rating },
     );
     return { ok: true };
@@ -372,7 +544,19 @@ export async function housekeepingAction(tx, actor, action, raw) {
     await revoke(tx, task.id);
     await query(
       tx,
-      "UPDATE HousekeepingTasks SET status='PENDING',version=version+1,offerRound=0,escalated=0,nextDispatchAt=SYSUTCDATETIME() WHERE id=@id",
+      (p) => ({
+        collection: "HousekeepingTasks",
+        filter: { id: p.id },
+        update: {
+          $set: {
+            status: "PENDING",
+            offerRound: 0,
+            escalated: false,
+            nextDispatchAt: new Date(),
+          },
+          $inc: { version: 1 },
+        },
+      }),
       { id: task.id },
     );
     await audit(tx, actor, action, task.id, { reason: b.reason });
@@ -394,7 +578,12 @@ export async function housekeepingAction(tx, actor, action, raw) {
     );
     const service = await one(
       tx,
-      "SELECT * FROM Services WHERE code=@code AND cleaning=1 AND enabled=1",
+      (p) => ({
+        collection: "Services",
+        filter: {
+          $and: [{ code: p.code }, { cleaning: true }, { enabled: true }],
+        },
+      }),
       { code: b.serviceCode || task.code },
     );
     assert(
@@ -405,7 +594,20 @@ export async function housekeepingAction(tx, actor, action, raw) {
     assert(
       !(await one(
         tx,
-        "SELECT id FROM HousekeepingTasks WHERE id<>@id AND stayId=@stayId AND serviceId=@serviceId AND status NOT IN('COMPLETED','CANCELLED') AND windowStart<@end AND windowEnd>@start",
+        (p) => ({
+          collection: "HousekeepingTasks",
+          filter: {
+            $and: [
+              { id: { $ne: p.id } },
+              { stayId: p.stayId },
+              { serviceId: p.serviceId },
+              { status: { $nin: ["COMPLETED", "CANCELLED"] } },
+              { windowStart: { $lt: p.end } },
+              { windowEnd: { $gt: p.start } },
+            ],
+          },
+          project: { id: 1 },
+        }),
         {
           id: task.id,
           stayId: task.stayId,
@@ -424,7 +626,22 @@ export async function housekeepingAction(tx, actor, action, raw) {
     await revoke(tx, task.id);
     await query(
       tx,
-      "UPDATE HousekeepingTasks SET windowStart=@start,windowEnd=@end,serviceId=@serviceId,checklistJson=@checklist,version=version+1,offerRound=0,escalated=0,nextDispatchAt=SYSUTCDATETIME() WHERE id=@id",
+      (p) => ({
+        collection: "HousekeepingTasks",
+        filter: { id: p.id },
+        update: {
+          $set: {
+            windowStart: p.start,
+            windowEnd: p.end,
+            serviceId: p.serviceId,
+            checklistJson: p.checklist,
+            offerRound: 0,
+            escalated: false,
+            nextDispatchAt: new Date(),
+          },
+          $inc: { version: 1 },
+        },
+      }),
       {
         id: task.id,
         start,
@@ -439,7 +656,16 @@ export async function housekeepingAction(tx, actor, action, raw) {
   if (action === "task-start" || action === "task-submit") {
     const assignment = await one(
       tx,
-      "SELECT * FROM CleaningAssignments WHERE taskId=@taskId AND cleanerId=@cleanerId AND isActive=1",
+      (p) => ({
+        collection: "CleaningAssignments",
+        filter: {
+          $and: [
+            { taskId: p.taskId },
+            { cleanerId: p.cleanerId },
+            { isActive: true },
+          ],
+        },
+      }),
       { taskId: task.id, cleanerId: actor.id },
     );
     assert(
@@ -456,21 +682,33 @@ export async function housekeepingAction(tx, actor, action, raw) {
         task.status === "ASSIGNED",
         "Công việc không ở trạng thái được giao",
       );
-      const stay = await one(tx, "SELECT * FROM Stays WHERE id=@id", {
-        id: task.stayId,
-      });
+      const stay = await one(
+        tx,
+        (p) => ({ collection: "Stays", filter: { id: p.id } }),
+        {
+          id: task.stayId,
+        },
+      );
       assert(
         !stay.dnd || task.source === "CHECKOUT",
         "Khách đang bật Không làm phiền",
       );
       await query(
         tx,
-        "UPDATE CleaningAssignments SET status='IN_PROGRESS',startedAt=SYSUTCDATETIME() WHERE id=@id",
+        (p) => ({
+          collection: "CleaningAssignments",
+          filter: { id: p.id },
+          update: { $set: { status: "IN_PROGRESS", startedAt: new Date() } },
+        }),
         { id: assignment.id },
       );
       await query(
         tx,
-        "UPDATE HousekeepingTasks SET status='IN_PROGRESS',version=version+1 WHERE id=@id",
+        (p) => ({
+          collection: "HousekeepingTasks",
+          filter: { id: p.id },
+          update: { $set: { status: "IN_PROGRESS" }, $inc: { version: 1 } },
+        }),
         { id: task.id },
       );
     } else {
@@ -484,17 +722,40 @@ export async function housekeepingAction(tx, actor, action, raw) {
       );
       await query(
         tx,
-        "UPDATE CleaningAssignments SET status='SUBMITTED',submittedAt=SYSUTCDATETIME(),closedAt=SYSUTCDATETIME(),isActive=0,checklistJson=@checklist WHERE id=@id",
+        (p) => ({
+          collection: "CleaningAssignments",
+          filter: { id: p.id },
+          update: {
+            $set: {
+              status: "SUBMITTED",
+              submittedAt: new Date(),
+              closedAt: new Date(),
+              isActive: false,
+              checklistJson: p.checklist,
+            },
+          },
+        }),
         { id: assignment.id, checklist: JSON.stringify(b.checklist) },
       );
       await query(
         tx,
-        "UPDATE HousekeepingTasks SET status='AWAITING_VERIFICATION',version=version+1 WHERE id=@id",
+        (p) => ({
+          collection: "HousekeepingTasks",
+          filter: { id: p.id },
+          update: {
+            $set: { status: "AWAITING_VERIFICATION" },
+            $inc: { version: 1 },
+          },
+        }),
         { id: task.id },
       );
       await query(
         tx,
-        "UPDATE CleanerProfiles SET lastClosedAt=SYSUTCDATETIME() WHERE userId=@id",
+        (p) => ({
+          collection: "CleanerProfiles",
+          filter: { userId: p.id },
+          update: { $set: { lastClosedAt: new Date() } },
+        }),
         { id: actor.id },
       );
       await notifyDesk(
@@ -522,35 +783,70 @@ export async function housekeepingAction(tx, actor, action, raw) {
     if (!b.passed) {
       await query(
         tx,
-        "UPDATE CleaningAssignments SET status='REWORK' WHERE taskId=@id AND status='SUBMITTED'",
+        (p) => ({
+          collection: "CleaningAssignments",
+          filter: { $and: [{ taskId: p.id }, { status: "SUBMITTED" }] },
+          update: { $set: { status: "REWORK" } },
+        }),
         { id: task.id },
       );
       await query(
         tx,
-        "UPDATE HousekeepingTasks SET status='PENDING',version=version+1,offerRound=0,escalated=0,nextDispatchAt=SYSUTCDATETIME() WHERE id=@id",
+        (p) => ({
+          collection: "HousekeepingTasks",
+          filter: { id: p.id },
+          update: {
+            $set: {
+              status: "PENDING",
+              offerRound: 0,
+              escalated: false,
+              nextDispatchAt: new Date(),
+            },
+            $inc: { version: 1 },
+          },
+        }),
         { id: task.id },
       );
     } else {
       await query(
         tx,
-        "UPDATE HousekeepingTasks SET status='COMPLETED',version=version+1 WHERE id=@id",
+        (p) => ({
+          collection: "HousekeepingTasks",
+          filter: { id: p.id },
+          update: { $set: { status: "COMPLETED", completedBy: actor.id, completedAt: new Date() }, $inc: { version: 1 } },
+        }),
         { id: task.id },
       );
-      const stay = await one(tx, "SELECT * FROM Stays WHERE id=@id", {
-        id: task.stayId,
-      });
+      const stay = await one(
+        tx,
+        (p) => ({ collection: "Stays", filter: { id: p.id } }),
+        {
+          id: task.stayId,
+        },
+      );
       // A stale turnover from an earlier occupancy cycle must never clean the new cycle.
       if (task.fullClean)
-        await query(
-          tx,
-          "UPDATE Rooms SET cleanState='CLEAN' WHERE id=@roomId AND cycle=@cycle AND (@source<>'CHECKOUT' OR NOT EXISTS(SELECT 1 FROM Stays WHERE roomId=@roomId AND status='OPEN'))",
-          { roomId: task.roomId, cycle: task.cycle, source: task.source },
-        );
+        await query(tx, "markRoomClean", {
+          roomId: task.roomId,
+          cycle: task.cycle,
+          source: task.source,
+        });
       if (task.priceSnapshot) {
         assert(stay.status === "OPEN", "Không thể ghi phí vào lưu trú đã đóng");
         await query(
           tx,
-          "INSERT StayServiceItems(id,stayId,serviceId,name,unitPrice,quantity,taskId) VALUES(@id,@stayId,@serviceId,@name,@price,1,@taskId)",
+          (p) => ({
+            collection: "StayServiceItems",
+            insert: {
+              id: p.id,
+              stayId: p.stayId,
+              serviceId: p.serviceId,
+              name: p.name,
+              unitPrice: p.price,
+              quantity: 1,
+              taskId: p.taskId,
+            },
+          }),
           {
             id: id(),
             stayId: task.stayId,
@@ -571,9 +867,13 @@ export async function housekeepingAction(tx, actor, action, raw) {
   assert(false, "Hành động dọn phòng không hợp lệ", 404);
 }
 async function assign(tx, actor, task, cleanerId, offerId) {
-  const stay = await one(tx, "SELECT * FROM Stays WHERE id=@id", {
-    id: task.stayId,
-  });
+  const stay = await one(
+    tx,
+    (p) => ({ collection: "Stays", filter: { id: p.id } }),
+    {
+      id: task.stayId,
+    },
+  );
   assert(
     task.source === "CHECKOUT"
       ? stay.status === "CLOSED"
@@ -583,19 +883,37 @@ async function assign(tx, actor, task, cleanerId, offerId) {
   const assignmentId = id();
   await query(
     tx,
-    "INSERT CleaningAssignments(id,taskId,cleanerId,offerId,status,isActive) VALUES(@id,@taskId,@cleanerId,@offerId,'ASSIGNED',1)",
+    (p) => ({
+      collection: "CleaningAssignments",
+      insert: {
+        id: p.id,
+        taskId: p.taskId,
+        cleanerId: p.cleanerId,
+        offerId: p.offerId,
+        status: "ASSIGNED",
+        isActive: true,
+      },
+    }),
     { id: assignmentId, taskId: task.id, cleanerId, offerId },
   );
   await query(
     tx,
-    "UPDATE HousekeepingTasks SET status='ASSIGNED',version=version+1 WHERE id=@id",
+    (p) => ({
+      collection: "HousekeepingTasks",
+      filter: { id: p.id },
+      update: { $set: { status: "ASSIGNED" }, $inc: { version: 1 } },
+    }),
     { id: task.id },
   );
   await revoke(tx, task.id);
   if (offerId)
     await query(
       tx,
-      "UPDATE CleaningOffers SET status='ACCEPTED' WHERE id=@id",
+      (p) => ({
+        collection: "CleaningOffers",
+        filter: { id: p.id },
+        update: { $set: { status: "ACCEPTED" } },
+      }),
       { id: offerId },
     );
   await notifyDesk(
@@ -611,19 +929,25 @@ async function assign(tx, actor, task, cleanerId, offerId) {
 async function revoke(tx, taskId) {
   await query(
     tx,
-    "UPDATE CleaningOffers SET status='REVOKED' WHERE taskId=@taskId AND status='PENDING'",
+    (p) => ({
+      collection: "CleaningOffers",
+      filter: { $and: [{ taskId: p.taskId }, { status: "PENDING" }] },
+      update: { $set: { status: "REVOKED" } },
+    }),
     { taskId },
   );
 }
 async function closeActive(tx, taskId, status) {
+  await query(tx, "closeCleanerActivity", { taskId });
   await query(
     tx,
-    "UPDATE CleanerProfiles SET lastClosedAt=SYSUTCDATETIME() WHERE userId IN(SELECT cleanerId FROM CleaningAssignments WHERE taskId=@taskId AND isActive=1)",
-    { taskId },
-  );
-  await query(
-    tx,
-    "UPDATE CleaningAssignments SET isActive=0,closedAt=SYSUTCDATETIME(),status=@status WHERE taskId=@taskId AND isActive=1",
+    (p) => ({
+      collection: "CleaningAssignments",
+      filter: { $and: [{ taskId: p.taskId }, { isActive: true }] },
+      update: {
+        $set: { isActive: false, closedAt: new Date(), status: p.status },
+      },
+    }),
     { taskId, status },
   );
 }

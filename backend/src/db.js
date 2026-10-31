@@ -1,53 +1,76 @@
-import sql from "mssql";
+import { MongoClient } from "mongodb";
 import { config } from "./config.js";
-let pool;
+import { execute } from "./mongo-store.js";
+import { views } from "./mongo-views.js";
+let connection;
 export async function database() {
-  if (!pool) {
-    const connection = new sql.ConnectionPool(config.sql);
-    connection.on("error", (error) =>
-      console.error("SQL pool:", error.code || "connection error"),
-    );
-    pool = connection.connect().catch((error) => {
-      pool = undefined;
-      throw error;
+  if (!connection) {
+    const client = new MongoClient(config.mongo.uri, {
+      maxPoolSize: config.mongo.poolSize,
+      minPoolSize: 0,
+      serverSelectionTimeoutMS: 10000,
+      connectTimeoutMS: 10000,
     });
+    connection = client
+      .connect()
+      .then(() => ({ client, db: client.db(config.mongo.database) }))
+      .catch(async (error) => {
+        connection = undefined;
+        await client.close();
+        throw error;
+      });
   }
-  return pool;
+  return connection;
 }
-export async function query(db, text, params = {}) {
-  const request = db.request();
-  const used = new Set(
-    [...text.matchAll(/@([A-Za-z_][A-Za-z0-9_]*)/g)].map((m) => m[1]),
+export async function query(context, operation, params = {}) {
+  if (typeof operation === "function")
+    return execute(context, operation(params));
+  if (!views[operation]) throw Error("Unknown Mongo operation: " + operation);
+  return views[operation](context, params);
+}
+export const one = async (context, operation, params) =>
+  (await query(context, operation, params))[0];
+export const like = (value) =>
+  new RegExp(
+    String(value)
+      .replace(/^%|%$/g, "")
+      .replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+    "i",
   );
-  for (const [key, value] of Object.entries(params))
-    if (used.has(key)) request.input(key, value === undefined ? null : value);
-  return (await request.query(text)).recordset || [];
-}
-export const one = async (db, text, params) =>
-  (await query(db, text, params))[0];
-// One property: a transaction-owned mutex makes availability, finance and assignment
-// decisions serializable across every API process and worker. Constraints remain a second guard.
+// All property mutations touch this document FIRST. Conflicting transactions retry
+// on a fresh snapshot, preserving booking/finance/assignment invariants across processes.
 export async function transaction(work) {
-  const tx = new sql.Transaction(await database());
-  await tx.begin(sql.ISOLATION_LEVEL.SERIALIZABLE);
+  const context = await database();
+  const session = context.client.startSession();
   try {
-    await query(
-      tx,
-      "DECLARE @r int; EXEC @r=sp_getapplock @Resource='StayFlow.property',@LockMode='Exclusive',@LockOwner='Transaction',@LockTimeout=15000; IF @r<0 THROW 51000,'Không lấy được khóa giao dịch',1;",
+    return await session.withTransaction(
+      async () => {
+        const tx = { ...context, session };
+        const lock = await context.db
+          .collection("PropertyMutex")
+          .updateOne(
+            { _id: "property" },
+            { $inc: { revision: 1 } },
+            { session },
+          );
+        if (lock.modifiedCount !== 1)
+          throw Error("Chạy migration MongoDB trước khi khởi động API.");
+        return work(tx);
+      },
+      {
+        readConcern: { level: "snapshot" },
+        writeConcern: { w: "majority" },
+        readPreference: "primary",
+        maxCommitTimeMS: 15000,
+        timeoutMS: 45000,
+      },
     );
-    const result = await work(tx);
-    await tx.commit();
-    return result;
-  } catch (error) {
-    try {
-      await tx.rollback();
-    } catch {
-      /* SQL may already roll back */
-    }
-    throw error;
+  } finally {
+    await session.endSession();
   }
 }
 export async function closeDatabase() {
-  if (pool) await (await pool).close();
-  pool = undefined;
+  const old = connection;
+  connection = undefined;
+  if (old) await (await old).client.close();
 }

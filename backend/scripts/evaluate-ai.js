@@ -1,10 +1,11 @@
 import { writeFile, mkdir } from "node:fs/promises";
 import { performance } from "node:perf_hooks";
 import { cleaningDraft } from "../src/services/ai.js";
+import { aiConfigured, aiConfiguration } from "../src/services/ai-provider.js";
 import { aiCases, referenceTime } from "../test/fixtures/ai-cases.js";
-if (!process.env.OPENAI_API_KEY) {
+if (!aiConfigured()) {
   console.error(
-    "BLOCKED: thiếu OPENAI_API_KEY. Không chạy đánh giá AI thật. Bộ dữ liệu có " +
+    "BLOCKED: thiếu API key của AI_PROVIDER. Không chạy đánh giá AI thật. Bộ dữ liệu có " +
       aiCases.length +
       " câu.",
   );
@@ -40,7 +41,8 @@ for (const sample of aiCases) {
 }
 const latency = results.map((r) => r.latencyMs).sort((a, b) => a - b);
 const report = {
-  model: process.env.OPENAI_MODEL || "gpt-4.1-mini",
+  provider: aiConfiguration().provider,
+  model: aiConfiguration().model,
   referenceTime,
   count: results.length,
   serviceAccuracy: results.filter((r) => r.codeCorrect).length / results.length,

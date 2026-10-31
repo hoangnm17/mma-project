@@ -2,9 +2,10 @@ import { assert } from "../domain.js";
 import { one, query, transaction, database } from "../db.js";
 import { staff } from "../repository.js";
 import { readResource } from "../reads.js";
+import { aiConfigured, providerStructured } from "./ai-provider.js";
 export async function reserveAi(actor) {
   assert(
-    process.env.OPENAI_API_KEY,
+    aiConfigured(),
     "AI chưa được cấu hình. Vui lòng dùng các biểu mẫu và báo cáo thông thường.",
     503,
   );
@@ -13,7 +14,16 @@ export async function reserveAi(actor) {
   await transaction(async (tx) => {
     const old = await one(
       tx,
-      "SELECT calls FROM AiUsage WHERE actorKey=@actorKey AND usageDate=CONVERT(date,SYSUTCDATETIME())",
+      (p) => ({
+        collection: "AiUsage",
+        filter: {
+          $and: [
+            { actorKey: p.actorKey },
+            { usageDate: new Date().toISOString().slice(0, 10) },
+          ],
+        },
+        project: { calls: 1 },
+      }),
       { actorKey },
     );
     assert(
@@ -24,50 +34,35 @@ export async function reserveAi(actor) {
     if (old)
       await query(
         tx,
-        "UPDATE AiUsage SET calls=calls+1 WHERE actorKey=@actorKey AND usageDate=CONVERT(date,SYSUTCDATETIME())",
+        (p) => ({
+          collection: "AiUsage",
+          filter: {
+            $and: [
+              { actorKey: p.actorKey },
+              { usageDate: new Date().toISOString().slice(0, 10) },
+            ],
+          },
+          update: { $inc: { calls: 1 } },
+        }),
         { actorKey },
       );
     else
       await query(
         tx,
-        "INSERT AiUsage(actorKey,usageDate,calls) VALUES(@actorKey,CONVERT(date,SYSUTCDATETIME()),1)",
+        (p) => ({
+          collection: "AiUsage",
+          insert: {
+            actorKey: p.actorKey,
+            usageDate: new Date().toISOString().slice(0, 10),
+            calls: 1,
+          },
+        }),
         { actorKey },
       );
   });
 }
 export async function structured(instructions, input, schema, name) {
-  try {
-    const response = await fetch("https://api.openai.com/v1/responses", {
-      method: "POST",
-      signal: AbortSignal.timeout(15000),
-      headers: {
-        Authorization: "Bearer " + process.env.OPENAI_API_KEY,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: process.env.OPENAI_MODEL || "gpt-4.1-mini",
-        store: false,
-        max_output_tokens: 900,
-        instructions,
-        input,
-        text: { format: { type: "json_schema", name, strict: true, schema } },
-      }),
-    });
-    assert(response.ok, "AI tạm không khả dụng", 503);
-    const data = await response.json();
-    const text = data.output
-      ?.flatMap((o) => o.content || [])
-      .find((c) => c.type === "output_text")?.text;
-    assert(text, "AI chưa có câu trả lời hợp lệ", 503);
-    return JSON.parse(text);
-  } catch (e) {
-    if (e.status) throw e;
-    assert(
-      false,
-      "AI tạm không khả dụng, hãy dùng chức năng thông thường.",
-      503,
-    );
-  }
+  return providerStructured(instructions, input, schema, name);
 }
 export async function managerAssistant(actor, question) {
   await staff(await database(), actor, ["Admin", "Receptionist"]);
@@ -112,7 +107,9 @@ export async function managerAssistant(actor, question) {
     data,
     message:
       call.tool === "dashboard"
-        ? `Doanh thu hóa đơn: ${data.revenue} VND. Thực thu: ${data.collected} VND. Công nợ: ${data.debt} VND. Phòng đang có khách: ${data.occupied}.`
+        ? actor.role === "Admin"
+          ? `Doanh thu hóa đơn: ${data.revenue} VND. Thực thu: ${data.collected} VND. Công nợ: ${data.debt} VND. Phòng đang có khách: ${data.occupied}.`
+          : `Phòng đang có khách: ${data.occupied}. Sắp nhận hôm nay: ${data.arrivals}. Sắp trả hôm nay: ${data.departures}.`
         : `Có ${data.length} phòng khả dụng trong khoảng yêu cầu: ${data.map((r) => r.number).join(", ")}.`,
     asOf: new Date().toISOString(),
   };

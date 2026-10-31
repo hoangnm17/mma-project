@@ -4,10 +4,26 @@ import { assert } from "./domain.js";
 export const id = () => randomUUID();
 export const hash = (value) => createHash("sha256").update(value).digest("hex");
 export const now = () => new Date();
+export async function canAccessSpecial(tx, actor) {
+  if (actor.kind !== "staff") return false;
+  const user = await one(tx, () => ({ collection: "Users", filter: { id: actor.id },
+    project: { role: 1, enabled: 1, authVersion: 1, canAccessSpecialServices: 1 } }));
+  return !!(user?.enabled && user.authVersion === actor.authVersion &&
+    (user.role === "Admin" || (user.role === "Receptionist" && user.canAccessSpecialServices === true)));
+}
 export async function audit(tx, actor, action, entityId, details = {}) {
   await query(
     tx,
-    "INSERT AuditLogs(id,actorId,action,entityId,details) VALUES(@id,@actorId,@action,@entityId,@details)",
+    (p) => ({
+      collection: "AuditLogs",
+      insert: {
+        id: p.id,
+        actorId: p.actorId,
+        action: p.action,
+        entityId: p.entityId,
+        details: p.details,
+      },
+    }),
     {
       id: id(),
       actorId: actor.kind === "staff" ? actor.id : null,
@@ -20,48 +36,67 @@ export async function audit(tx, actor, action, entityId, details = {}) {
 export async function notify(tx, userId, title, body, taskId, eventKey) {
   const payload = { title, body, taskId, eventKey };
   if (
-    await one(tx, "SELECT id FROM OutboxEvents WHERE eventKey=@eventKey", {
-      eventKey,
-    })
+    await one(
+      tx,
+      (p) => ({
+        collection: "OutboxEvents",
+        filter: { eventKey: p.eventKey },
+        project: { id: 1 },
+      }),
+      {
+        eventKey,
+      },
+    )
   )
     return;
   await query(
     tx,
-    "INSERT Notifications(id,userId,title,body,taskId,eventKey) VALUES(@id,@userId,@title,@body,@taskId,@eventKey)",
+    (p) => ({
+      collection: "Notifications",
+      insert: {
+        id: p.id,
+        userId: p.userId,
+        title: p.title,
+        body: p.body,
+        taskId: p.taskId,
+        eventKey: p.eventKey,
+      },
+    }),
     { id: id(), userId, title, body, taskId, eventKey },
   );
   await query(
     tx,
-    "INSERT OutboxEvents(id,eventKey,userId,payloadJson) VALUES(@id,@eventKey,@userId,@payloadJson)",
+    (p) => ({
+      collection: "OutboxEvents",
+      insert: {
+        id: p.id,
+        eventKey: p.eventKey,
+        userId: p.userId,
+        payloadJson: p.payloadJson,
+      },
+    }),
     { id: id(), eventKey, userId, payloadJson: JSON.stringify(payload) },
   );
 }
 export async function notifyDesk(tx, title, body, taskId, eventKey) {
-  for (const user of await query(
-    tx,
-    "SELECT id FROM Users WHERE enabled=1 AND role IN ('Admin','Receptionist')",
-  ))
+  for (const user of await query(tx, (p) => ({
+    collection: "Users",
+    filter: {
+      $and: [{ enabled: true }, { role: { $in: ["Admin", "Receptionist"] } }],
+    },
+    project: { id: 1 },
+  })))
     await notify(tx, user.id, title, body, taskId, eventKey + ":" + user.id);
 }
 export async function available(tx, roomId, start, end, excludeBooking = null) {
-  const room = await one(
-    tx,
-    "SELECT r.*,t.capacity,t.rateJson FROM Rooms r JOIN RoomTypes t ON t.id=r.typeId WHERE r.id=@roomId",
-    { roomId },
-  );
+  const room = await one(tx, "roomType", { roomId });
   assert(room && room.enabled, "Phòng không hoạt động");
-  const clash = await one(
-    tx,
-    `SELECT TOP 1 id FROM Bookings WHERE roomId=@roomId AND status='CONFIRMED' AND (@excludeBooking IS NULL OR id<>@excludeBooking) AND startsAt<@endsAt AND endsAt>@startsAt
-    UNION ALL SELECT id FROM Stays WHERE roomId=@roomId AND status='OPEN' AND (@startsAt<expectedEnd OR expectedEnd<=SYSUTCDATETIME())
-    UNION ALL SELECT id FROM Maintenance WHERE roomId=@roomId AND resolvedAt IS NULL AND startsAt<@endsAt AND endsAt>@startsAt`,
-    {
-      roomId,
-      startsAt: new Date(start),
-      endsAt: new Date(end),
-      excludeBooking,
-    },
-  );
+  const clash = await one(tx, "roomClash", {
+    roomId,
+    startsAt: new Date(start),
+    endsAt: new Date(end),
+    excludeBooking,
+  });
   assert(!clash, "Phòng có lịch trùng, đang lưu trú hoặc bảo trì");
   return room;
 }
@@ -73,7 +108,11 @@ export async function staff(tx, actor, roles) {
   );
   const u = await one(
     tx,
-    "SELECT enabled,authVersion FROM Users WHERE id=@id",
+    (p) => ({
+      collection: "Users",
+      filter: { id: p.id },
+      project: { enabled: 1, authVersion: 1 },
+    }),
     { id: actor.id },
   );
   assert(
@@ -92,11 +131,7 @@ export async function guestStay(tx, actor, stayId, allowClosed = false) {
     "Không có quyền với lượt lưu trú",
     403,
   );
-  const token = await one(
-    tx,
-    "SELECT g.*,s.status FROM GuestAccessTokens g JOIN Stays s ON s.id=g.stayId WHERE g.id=@id",
-    { id: actor.accessId },
-  );
+  const token = await one(tx, "guestAccess", { id: actor.accessId });
   assert(
     token &&
       !token.revoked &&

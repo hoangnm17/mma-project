@@ -1,5 +1,26 @@
 # Tiến độ StayFlow — 30/10/2026
 
+## Cập nhật 31/10 — sửa crash và kiểm thử thực tế
+
+Đã sửa thứ tự SessionProvider/PaperProvider để hộp thoại lưu trú và phiếu cọc không mất session, sửa API availability thiếu end, làm gọn Tổng quan/Thêm và tách thao tác thanh toán. MongoDB replica set native test riêng: 40/40 đạt, gồm migrate lặp; unit/HTTP: 27/27; 5 luồng UI 390×844 đạt, không pageerror hoặc tràn ngang Dashboard. Lint/typecheck và export web/Android đã đạt. Chưa tạo APK mới hoặc deploy server. Chi tiết và lệnh chạy lại: [xác minh bugfix](bugfix-verification.md).
+
+## APK dùng API EC2 HTTPS — đã hoàn thành
+
+- User cung cấp API `https://3.26.69.81.sslip.io/health`; curl có kiểm tra TLS trả200/status ok từ máy phát triển. Base URL app là `https://3.26.69.81.sslip.io`, không thêm /health.
+- Thêm profile preview-cloud cùng owner/project team, DEMO_LAN=false; npm run build:apk mặc định chọn preview-cloud, giữ preview-team LAN để dùng lại khi cần. Android versionCode2 để cập nhật APK LAN code1.
+- Kiểm tra config public đúng team/project/code2/cleartext false, lint và JS syntax/module pass. Team Free trước build Android3/15, còn12. EAS build `69ead6f9-e82c-4483-9dd3-5723a144c718` **FINISHED**, dùng remote keystore9G165Krfjn hiện có. APK thật: https://expo.dev/artifacts/eas/NSmxhawpeEXqTFp8b-gd5jyJwV38KxrkoLHmg1pHtZQ.apk. Local artifacts/StayFlow-cloud.apk. Bundle URL cloud đúng/không LAN, team/project/code2 đúng, manifest HTTP tắt, chữ ký giống APK LAN đều verify pass. Team sau build Android4/15, còn11, overage0. API rooms không auth trả401. Chưa native cloud login/full workflow hoặc Android vật lý. Chi tiết docs/eas-build.md.
+
+## Đợt chuyển Express + MongoDB — yêu cầu hiện hành
+
+- User xác nhận EC2 đã nâng 2 GB và yêu cầu chuyển SQL Server sang Express + MongoDB, sẽ tự deploy. Express đã có, đã chuyển toàn bộ data access sang MongoDB Node driver 6.21, không SQL interpreter; API contract/snapshot JSON giữ để APK tương thích.
+- Native Mongo filters/updates/projections/aggregations: mongo-store.js/mongo-views.js, schema definitions, migration 001_mongo.js tạo validators/indexes. Transaction snapshot + majority ghi PropertyMutex đầu tiên và retry conflict, partial unique active task/cleaner + unique idempotency/voucher/task fee. Tham chiếu được kiểm tra server trong transaction; Mongo không có foreign key.
+- Local replica set demo mới project stayflow-mongo-demo, localhost27027 (27017 có dịch vụ khác, không đụng). SQL database/volumes cũ giữ nguyên, **chưa export/import dữ liệu SQL sang Mongo**. Migration SQL là lịch sử, không chạy trong migrate mới.
+- Production compose: Mongo auth/keyfile + rs-init + migrate/provision/bootstrap + API runtime user + Caddy, không public Mongo/API. Cache256MiB/pool5, memory limits Mongo1GiB/API512MiB/Caddy96MiB. Không cam kết tải 1.000 user; chưa đo trên EC2.
+- Unit17/17 pass. Mongo integration 22 kịch bản con pass (TAP24 gồm 2 wrapper): toàn bộ18 workflow cũ + rollback/index guards/validators/read resources. Lần đầu phát hiện refund còn SQL động, đã sửa và chạy lại full integration đạt24/24. Log artifacts/mongo-integration.log.
+- Docker image API/web mới build pass. Smoke production-like pass: root auth/keyfile, replica init, migration/seed/bootstrap, API runtime user riêng; health/web200, login3role/read/RBAC pass. API env không có root/bootstrap/demo secret. Backend audit0, lint/compiler JS syntax/module pass. Chưa deploy AWS, chưa TLS/domain và chưa APK public. Xem docs/deploy-mongo.md để deploy sau khi bàn giao.
+
+Các đoạn SQL Server và đề xuất RAM cũ bên dưới là lịch sử trước yêu cầu chuyển đổi, không áp dụng cho cấu hình hiện hành.
+
 ## Đang chuẩn bị test từ xa trên AWS
 
 - Cập nhật từ terminal user: đã có EC2, user `ec2-user`, private hostname `ip-172-31-44-211`, x86_64, RAM 913 MiB, không swap, Docker 25.0.14, chưa Compose plugin. Chưa biết public IP/region/instance type/domain/SSH key; chưa có quyền truy cập trực tiếp. Cần nâng máy khoảng 4 GiB để chạy SQL Server + API; 913 MiB thấp hơn mức tối thiểu 2 GB của SQL Server. Hướng dẫn cài Compose plugin thủ công theo Docker Docs, không giả định apt trên Amazon Linux.

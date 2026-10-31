@@ -20,15 +20,23 @@ if (
   );
 }
 const secret = () => `Sf9!${crypto.randomBytes(24).toString("hex")}`;
+const rootPassword = crypto.randomBytes(32).toString("hex");
+const appPassword = crypto.randomBytes(32).toString("hex");
 const values = {
   DOMAIN: domain.toLowerCase(),
-  SQL_DATABASE: "StayFlow",
-  SQL_PASSWORD: secret(),
-  APP_SQL_PASSWORD: secret(),
+  MONGO_DATABASE: "StayFlow",
+  MONGO_ROOT_USER: "root",
+  MONGO_ROOT_PASSWORD: rootPassword,
+  MONGO_APP_PASSWORD: appPassword,
+  MONGO_ADMIN_URI: `mongodb://root:${rootPassword}@mongo:27017/?authSource=admin&replicaSet=rs0`,
+  MONGO_URI: `mongodb://stayflow_app:${appPassword}@mongo:27017/?authSource=StayFlow&replicaSet=rs0`,
   JWT_SECRET: crypto.randomBytes(48).toString("hex"),
   PUSH_ENABLED: "false",
   OPENAI_API_KEY: "",
   OPENAI_MODEL: "gpt-4.1-mini",
+  AI_PROVIDER: "",
+  GEMINI_API_KEY: "",
+  GEMINI_MODEL: "gemini-3.5-flash-lite",
   AI_DAILY_LIMIT: "30",
   DEMO_SEED_PASSWORD: mode === "demo" ? secret() : "",
   BOOTSTRAP_ADMIN_USERNAME: "admin",

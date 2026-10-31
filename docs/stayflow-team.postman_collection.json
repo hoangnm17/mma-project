@@ -1,0 +1,3993 @@
+{
+  "info": {
+    "name": "StayFlow — BE × FE mobile — source 2026-10-31",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "90 request templates đối chiếu source local, không có secret. Đọc docs/team-handoff.md và api-reference-current.md. Đặt baseUrl, tài khoản và ID từ DB test; Send từng request theo luồng, không tự tạo dữ liệu phụ thuộc. idempotencyKey để trống: tự đặt key mới mỗi ý định, giữ key khi retry nguyên body. startAt/endAt cần mốc tương lai có offset. Mặc định staff token; guest-stay/review dùng guestToken. Login/refresh tự lưu token khi 200."
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:4000",
+      "type": "string"
+    },
+    {
+      "key": "username",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "password",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "newPassword",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "refreshToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "guestToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "guestLinkToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "idempotencyKey",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "startAt",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "endAt",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "customerPhone",
+      "value": "0901234567",
+      "type": "string"
+    },
+    {
+      "key": "roomId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "typeId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "customerId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "bookingId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "stayId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "invoiceId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "receiptId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "serviceId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "foodServiceId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "specialServiceId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "taskId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "orderId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "cleanerId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "offerId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "maintenanceId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "incidentId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "notificationId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "expoPushToken",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "00. Kết nối và phiên",
+      "item": [
+        {
+          "name": "GET /health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "health"
+              ],
+              "query": []
+            },
+            "description": "Quyền: Public\nInput: Không có.\nOutput: {status:\"ok\"}; 503: {status:\"database-unavailable\"}.\nNgoài /api; health máy tính không chứng minh điện thoại truy cập được.\n"
+          }
+        },
+        {
+          "name": "POST /api/auth/login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ],
+              "query": []
+            },
+            "description": "Quyền: Public\nInput: username:string <=80; password:string <=100.\nOutput: {user:{id,name,role,canAccessSpecialServices},token,refreshToken}.\nJWT staff 8 giờ; refresh token 7 ngày.\n",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{username}}\",\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const data = pm.response.json();",
+                  "  pm.collectionVariables.set(\"token\", data.token);",
+                  "  pm.collectionVariables.set(\"refreshToken\", data.refreshToken);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /api/auth/refresh",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/refresh",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "refresh"
+              ],
+              "query": []
+            },
+            "description": "Quyền: Public\nInput: refreshToken:string 30..100.\nOutput: Cùng shape login; refresh token cũ bị revoke.\nĐược FE gọi lúc restore session; không có interceptor tự refresh/replay hiện tại.\n",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const data = pm.response.json();",
+                  "  pm.collectionVariables.set(\"token\", data.token);",
+                  "  pm.collectionVariables.set(\"refreshToken\", data.refreshToken);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /api/guest-access/exchange",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/guest-access/exchange",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "guest-access",
+                "exchange"
+              ],
+              "query": []
+            },
+            "description": "Quyền: Public\nInput: token:string 30..100, token ngẫu nhiên từ fragment link.\nOutput: {token:guestJWT,stayId,room:số phòng}.\nGuest JWT 2 giờ; không dùng link token làm Bearer.\n",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"{{guestLinkToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const data = pm.response.json();",
+                  "  pm.collectionVariables.set(\"guestToken\", data.token);",
+                  "  pm.collectionVariables.set(\"stayId\", data.stayId);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /api/me",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "me"
+              ],
+              "query": []
+            },
+            "description": "Quyền: Staff / Guest (phạm vi theo token)\nInput: Không có.\nOutput: Staff: {id,name,role,canAccessSpecialServices}; Guest: {kind:\"guest\",stayId}.\nGET me trả cờ quyền được lưu; với Admin FE cần kiểm tra role Admin hoặc cờ, không chỉ cờ.\n"
+          }
+        },
+        {
+          "name": "POST /api/actions/password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{idempotencyKey}}",
+                "description": "Điền key mới mỗi ý định; giữ nguyên khi retry cùng body."
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/actions/password",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "actions",
+                "password"
+              ],
+              "query": []
+            },
+            "description": "Quyền: Staff\nInput: current:string <=100; password:string 10..100.\nOutput: {ok:true}.\nĐổi mật khẩu thu hồi phiên; đăng nhập lại sau thành công.\n",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"current\": \"{{password}}\",\n  \"password\": \"{{newPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST /api/actions/logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{idempotencyKey}}",
+                "description": "Điền key mới mỗi ý định; giữ nguyên khi retry cùng body."
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/actions/logout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "actions",
+                "logout"
+              ],
+              "query": []
+            },
+            "description": "Quyền: Staff\nInput: {}\nOutput: {ok:true}.\nFE xóa token và cache sau logout.\n",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "01. Khách và phòng",
+      "item": [
+        {
+          "name": "GET /api/rooms",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/rooms?page=1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "rooms"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                }
+              ]
+            },
+            "description": "Quyền: Admin / Receptionist\nInput: page?, search?:số phòng, typeId?:UUID, status?:READY|OCCUPIED|DIRTY|MAINTENANCE|DISABLED|ALL.\nOutput: Room[]; có id,number,typeId,zone,enabled,cleanState,cycle,typeName,capacity,rateJson,stayId,expectedEnd,status.\n30 dòng. status là trạng thái vận hành suy ra; cleanState khác status.\n"
+          }
+        },
+        {
+          "name": "GET /api/roomTypes",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/roomTypes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "roomTypes"
+              ],
+              "query": []
+            },
+            "description": "Quyền: Admin / Receptionist\nInput: Không có.\nOutput: RoomType[] gồm id,name,capacity,rateJson.\nKhông phân trang. rateJson là JSON string.\n"
+          }
+        },
+        {
+          "name": "GET /api/availability",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/availability?start={{startAt}}&mode=HOUR",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "availability"
+              ],
+              "query": [
+                {
+                  "key": "start",
+                  "value": "{{startAt}}"
+                },
+                {
+                  "key": "mode",
+                  "value": "HOUR"
+                }
+              ]
+            },
+            "description": "Quyền: Admin / Receptionist\nInput: start:ISO bắt buộc; end?:ISO; mode?:HOUR|NIGHT (mặc định HOUR); excludeBooking?:UUID.\nOutput: Room[] khả dụng cho khoảng yêu cầu.\nThiếu end: BE suy ra theo mode. POST booking/checkin kiểm tra lại trong transaction.\n"
+          }
+        },
+        {
+          "name": "GET /api/customers",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/customers?page=1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "customers"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                }
+              ]
+            },
+            "description": "Quyền: Admin / Receptionist\nInput: page?, search?:tên hoặc điện thoại.\nOutput: Customer[] gồm id,name,phone,notes,tier,...\n30 dòng.\n"
+          }
+        },
+        {
+          "name": "GET /api/customer-lookup",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/customer-lookup?phone={{customerPhone}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "customer-lookup"
+              ],
+              "query": [
+                {
+                  "key": "phone",
+                  "value": "{{customerPhone}}"
+                }
+              ]
+            },
+            "description": "Quyền: Admin / Receptionist\nInput: phone:string <=30 bắt buộc.\nOutput: Customer hoặc null.\nChuẩn hóa +84/0084 về 0; không tìm thấy không phải 404.\n"
+          }
+        },
+        {
+          "name": "GET /api/customer-history",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/customer-history?customerId={{customerId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "customer-history"
+              ],
+              "query": [
+                {
+                  "key": "customerId",
+                  "value": "{{customerId}}"
+                }
+              ]
+            },
+            "description": "Quyền: Admin / Receptionist\nInput: customerId:UUID.\nOutput: Stay[] có roomNumber,customerName,invoiceId,total.\nKhông phân trang; invoiceId/total có thể null.\n"
+          }
+        },
+        {
+          "name": "GET /api/room-history",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/room-history?roomId={{roomId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "room-history"
+              ],
+              "query": [
+                {
+                  "key": "roomId",
+                  "value": "{{roomId}}"
+                }
+              ]
+            },
+            "description": "Quyền: Admin / Receptionist\nInput: roomId:UUID.\nOutput: Stay[] có roomNumber,customerName.\nKhông phân trang.\n"
+          }
+        },
+        {
+          "name": "GET /api/room-cleaning-history",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/room-cleaning-history?roomId={{roomId}}&page=1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "room-cleaning-history"
+              ],
+              "query": [
+                {
+                  "key": "roomId",
+                  "value": "{{roomId}}"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                }
+              ]
+            },
+            "description": "Quyền: Admin / Receptionist\nInput: roomId:UUID; page?.\nOutput: Task[] có code,serviceName,roomNumber,checklistJson,...\n30 dòng. Không nhầm taskId với stayId.\n"
+          }
+        },
+        {
+          "name": "POST /api/actions/customer",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{idempotencyKey}}",
+                "description": "Điền key mới mỗi ý định; giữ nguyên khi retry cùng body."
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/actions/customer",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "actions",
+                "customer"
+              ],
+              "query": []
+            },
+            "description": "Quyền: Admin / Receptionist\nInput: id?:UUID; name:trim 1..120; phone:string <=30; notes?:string <=500.\nOutput: {id:customerId}.\nTạo trùng số đã chuẩn hóa bị từ chối; booking/checkin có cơ chế dùng lại khách inline.\n",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Khách thử API\",\n  \"phone\": \"{{customerPhone}}\",\n  \"notes\": \"Dữ liệu test\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "02. Booking và nhận phòng",
+      "item": [
+        {
+          "name": "GET /api/bookings",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/bookings?page=1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "bookings"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                }
+              ]
+            },
+            "description": "Quyền: Admin / Receptionist\nInput: page?.\nOutput: Booking[] có roomNumber,customerName,deposit:số cọc ròng.\n30 dòng; không có filter status/search ở view hiện tại.\n"
+          }
+        },
+        {
+          "name": "GET /api/booking-receipts",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/booking-receipts?bookingId={{bookingId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "booking-receipts"
+              ],
+              "query": [
+                {
+                  "key": "bookingId",
+                  "value": "{{bookingId}}"
+                }
+              ]
+            },
+            "description": "Quyền: Admin / Receptionist\nInput: bookingId:UUID.\nOutput: Receipt[] có returned:số đã hoàn trước chốt.\nKhông phân trang. Sau checkin cọc gắn sang stay; đọc receipts theo stay.\n"
+          }
+        },
+        {
+          "name": "GET /api/campaign-options",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/campaign-options",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "campaign-options"
+              ],
+              "query": []
+            },
+            "description": "Quyền: Admin / Receptionist\nInput: Không có.\nOutput: {id,name}[] chiến dịch đang hiệu lực.\nKhông trả toàn bộ ngân sách/nội dung chiến dịch cho Lễ tân.\n"
+          }
+        },
+        {
+          "name": "POST /api/actions/booking",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{idempotencyKey}}",
+                "description": "Điền key mới mỗi ý định; giữ nguyên khi retry cùng body."
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/actions/booking",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "actions",
+                "booking"
+              ],
+              "query": []
+            },
+            "description": "Quyền: Admin / Receptionist\nInput: roomId:UUID; customerId?:UUID hoặc customer:{name,phone,notes?}; guests:int 1..20; mode:HOUR|NIGHT; id?,startsAt?,endsAt?,deposit?,method?,source?,campaignId?.\nOutput: {id:bookingId}.\nstartsAt mặc định hiện tại; endsAt suy ra. method=CASH, deposit=0, source=Trực tiếp, campaignId=null mặc định. Sửa booking: deposit phải 0; thu thêm qua receipt.\n",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"roomId\": \"{{roomId}}\",\n  \"customer\": {\n    \"name\": \"Khách thử API\",\n    \"phone\": \"{{customerPhone}}\"\n  },\n  \"startsAt\": \"{{startAt}}\",\n  \"mode\": \"HOUR\",\n  \"guests\": 2,\n  \"deposit\": 0,\n  \"method\": \"CASH\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST /api/actions/booking-cancel",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{idempotencyKey}}",
+                "description": "Điền key mới mỗi ý định; giữ nguyên khi retry cùng body."
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/actions/booking-cancel",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "actions",
+                "booking-cancel"
+              ],
+              "query": []
+            },
+            "description": "Quyền: Admin / Receptionist\nInput: id:bookingId UUID.\nOutput: {ok:true}.\nChỉ CONFIRMED, còn cọc chưa hoàn thì 409.\n",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"{{bookingId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST /api/actions/checkin",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{idempotencyKey}}",
+                "description": "Điền key mới mỗi ý định; giữ nguyên khi retry cùng body."
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/actions/checkin",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "actions",
+                "checkin"
+              ],
+              "query": []
+            },
+            "description": "Quyền: Admin / Receptionist\nInput: bookingId?:UUID; hoặc roomId, customerId/customer, guests, mode; expectedEnd?:ISO.\nOutput: {id:stayId}.\nCó booking lấy thông tin từ DB; nhận trực tiếp cần đủ phòng/khách/số người/mode. Phòng sạch, không có stay mở, không xung đột; từ booking không sớm hơn quá 1 giờ.\n",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bookingId\": \"{{bookingId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "03. Lưu trú và tài chính",
+      "item": [
+        {
+          "name": "GET /api/stays",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/stays?page=1&status=OPEN",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "stays"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "status",
+                  "value": "OPEN"
+                }
+              ]
+            },
+            "description": "Quyền: Admin / Receptionist\nInput: page?; status?:OPEN|CLOSED|ALL.\nOutput: Stay[] có id,roomId,customerId,roomNumber,customerName,mode,startedAt,expectedEnd,endedAt,status,dnd,rateJson,cycle,...\n30 dòng. Giá chính thức trong quote, không tính lại từ rateJson ở FE.\n"
+          }
+        },
+        {
+          "name": "GET /api/quote",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/quote?stayId={{stayId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "quote"
+              ],
+              "query": [
+                {
+                  "key": "stayId",
+                  "value": "{{stayId}}"
+                }
+              ]
+            },
+            "description": "Quyền: Admin / Receptionist\nInput: stayId:UUID.\nOutput: {stay,invoice,room,items,services,total,paid,refunded,adjustments,balance,credit}.\ninvoice=null trước chốt; room là breakdown. SPECIAL bị ẩn tên/orderId cho người không có quyền. balance=total-paid+refunded; credit=max(0,paid-refunded-total).\n"
+          }
+        },
+        {
+          "name": "GET /api/receipts",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/receipts?stayId={{stayId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "receipts"
+              ],
+              "query": [
+                {
+                  "key": "stayId",
+                  "value": "{{stayId}}"
+                }
+              ]
+            },
+            "description": "Quyền: Admin / Receptionist\nInput: stayId:UUID.\nOutput: Receipt[] có id,amount,method,returned,createdAt,...\nKhông phân trang; returned là tổng ReceiptReturns cho phiếu.\n"
+          }
+        },
+        {
+          "name": "GET /api/invoices",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/invoices?page=1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "invoices"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                }
+              ]
+            },
+            "description": "Quyền: Admin / Receptionist\nInput: page?; customerId?:UUID; paymentStatus?:UNPAID|PARTIAL|PAID|ALL.\nOutput: Invoice[] có roomNumber,customerName,total,originalTotal,adjustmentAmount,adjustmentReason,adjustedByName,adjustedAt,paid,refunded,adjusted,balance,paymentStatus,startedAt,endedAt,mode,...\n30 dòng sau filter. invoice total trước Adjustments; quote.total đã trừ adjustments.\n"
+          }
+        },
+        {
+          "name": "GET /api/services",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/services",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "services"
+              ],
+              "query": []
+            },
+            "description": "Quyền: Staff / Guest (phạm vi theo token)\nInput: includeDisabled?:true (Admin).\nOutput: Service[] đang bật, loại trừ category FOOD và SPECIAL.\nKhông phân trang. Có cả dịch vụ cleaning; serviceItem không dùng thay task/order cho các loại có workflow.\n"
+          }
+        },
+        {
+          "name": "POST /api/actions/serviceItem",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{idempotencyKey}}",
+                "description": "Điền key mới mỗi ý định; giữ nguyên khi retry cùng body."
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/actions/serviceItem",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "actions",
+                "serviceItem"
+              ],
+              "query": []
+            },
+            "description": "Quyền: Admin / Receptionist\nInput: stayId:UUID; serviceId:UUID; quantity:int 1..1000; itemId?:UUID để sửa dòng cũ.\nOutput: {id:itemId}.\nChỉ stay OPEN, dịch vụ thường; phí cleaning/FOOD/SPECIAL đi theo workflow riêng. Snapshot tên/giá BE.\n",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"stayId\": \"{{stayId}}\",\n  \"serviceId\": \"{{serviceId}}\",\n  \"quantity\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST /api/actions/receipt",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{idempotencyKey}}",
+                "description": "Điền key mới mỗi ý định; giữ nguyên khi retry cùng body."
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/actions/receipt",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "actions",
+                "receipt"
+              ],
+              "query": []
+            },
+            "description": "Quyền: Admin / Receptionist\nInput: Một trong stayId hoặc bookingId:UUID; amount:int VND >0; method:CASH|TRANSFER.\nOutput: {id:receiptId}.\nKhông thu quá số còn phải trả theo BE. Hóa đơn còn nợ vẫn có thể thu sau checkout.\n",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"stayId\": \"{{stayId}}\",\n  \"amount\": 100000,\n  \"method\": \"CASH\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST /api/actions/checkout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{idempotencyKey}}",
+                "description": "Điền key mới mỗi ý định; giữ nguyên khi retry cùng body."
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/actions/checkout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "actions",
+                "checkout"
+              ],
+              "query": []
+            },
+            "description": "Quyền: Admin / Receptionist\nInput: stayId:UUID; finalTotal?:VND; adjustmentReason?:<=500; discount?:VND; surcharge?:VND; allowDebt?:boolean; reason?:<=500; voucherCode?:<=40; paymentAmount?:VND; paymentMethod?:CASH|TRANSFER; payRemaining?:boolean.\nOutput: {id:invoiceId,total}.\nMặc định các khoản nhập =0, allowDebt/payRemaining=false, paymentMethod=CASH. payRemaining và paymentAmount>0 loại trừ nhau; finalTotal và discount/surcharge>0 loại trừ nhau. Điều chỉnh cần lý do >=5, Lễ tân được phép; công nợ cần Admin + reason>=5. Chặn order chờ/task đang làm. Thu dư phải hoàn trước chốt.\n",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"stayId\": \"{{stayId}}\",\n  \"payRemaining\": true,\n  \"paymentMethod\": \"CASH\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST /api/actions/receipt-return",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{idempotencyKey}}",
+                "description": "Điền key mới mỗi ý định; giữ nguyên khi retry cùng body."
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/actions/receipt-return",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "actions",
+                "receipt-return"
+              ],
+              "query": []
+            },
+            "description": "Quyền: Admin\nInput: receiptId:UUID; amount:VND >0; reason:string 5..500.\nOutput: {id:returnId}.\nHoàn phiếu thu trước khi có invoice; không vượt phần còn lại chưa hoàn.\n",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"receiptId\": \"{{receiptId}}\",\n  \"amount\": 50000,\n  \"reason\": \"Hoàn phần tiền cọc dư\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST /api/actions/refund",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{idempotencyKey}}",
+                "description": "Điền key mới mỗi ý định; giữ nguyên khi retry cùng body."
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/actions/refund",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "actions",
+                "refund"
+              ],
+              "query": []
+            },
+            "description": "Quyền: Admin\nInput: invoiceId:UUID; amount:VND >0; reason:string 5..500.\nOutput: {ok:true}.\nSau chốt: hoàn tiền và tạo điều chỉnh giảm nghĩa vụ cùng transaction; không chỉ giảm thực thu riêng lẻ.\n",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"invoiceId\": \"{{invoiceId}}\",\n  \"amount\": 50000,\n  \"reason\": \"Hoàn tiền theo xác nhận\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "04. Dọn phòng và khách",
+      "item": [
+        {
+          "name": "GET /api/tasks",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/tasks?page=1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "tasks"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                }
+              ]
+            },
+            "description": "Quyền: Staff; Guest đúng stay; Cleaner chỉ assignment của mình\nInput: page?; search?:số phòng (desk).\nOutput: Task[]; staff/guest có serviceName,code,fullClean,roomNumber,checklistJson; Cleaner có thêm assignmentId,assignmentStatus,isActive và mốc thời gian.\n30 dòng. Guest không truyền stayId để mở rộng phạm vi; BE lấy từ token.\n"
+          }
+        },
+        {
+          "name": "GET /api/guest-stay",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{guestToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/guest-stay",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "guest-stay"
+              ],
+              "query": []
+            },
+            "description": "Quyền: Guest\nInput: Không có.\nOutput: {id,dnd,status,number}.\nid là stayId; chỉ own stay đang được link cho phép.\n"
+          }
+        },
+        {
+          "name": "POST /api/actions/guest-link",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{idempotencyKey}}",
+                "description": "Điền key mới mỗi ý định; giữ nguyên khi retry cùng body."
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/actions/guest-link",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "actions",
+                "guest-link"
+              ],
+              "query": []
+            },
+            "description": "Quyền: Admin / Receptionist\nInput: stayId:UUID.\nOutput: {url:guestUrl + \"#token=...\"}.\nCấp link mới revoke link trước. checkout vô hiệu truy cập guest.\n",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"stayId\": \"{{stayId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST /api/actions/dnd",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{idempotencyKey}}",
+                "description": "Điền key mới mỗi ý định; giữ nguyên khi retry cùng body."
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/actions/dnd",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "actions",
+                "dnd"
+              ],
+              "query": []
+            },
+            "description": "Quyền: Guest, đúng stay; Admin / Receptionist\nInput: stayId:UUID; dnd:boolean.\nOutput: {ok:true}.\nGuest chỉ own stay; dùng JWT staff cũng được theo guestStay policy.\n",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"stayId\": \"{{stayId}}\",\n  \"dnd\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST /api/actions/task-create",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{idempotencyKey}}",
+                "description": "Điền key mới mỗi ý định; giữ nguyên khi retry cùng body."
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/actions/task-create",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "actions",
+                "task-create"
+              ],
+              "query": []
+            },
+            "description": "Quyền: Guest, đúng stay; Admin / Receptionist\nInput: stayId:UUID; serviceCode:FULL|LINEN|BATHROOM|TOWELS; windowStart,windowEnd:ISO; entryConsent:boolean; feeApproved:boolean; notes?:<=1000.\nOutput: {id:taskId,status:\"PENDING\"}.\nKhông nhận TURNOVER từ request thường; consent phải true, có phí phải feeApproved=true; DND/trùng loại chồng giờ bị chặn; khung tối đa 7 ngày.\n",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"stayId\": \"{{stayId}}\",\n  \"serviceCode\": \"TOWELS\",\n  \"windowStart\": \"{{startAt}}\",\n  \"windowEnd\": \"{{endAt}}\",\n  \"entryConsent\": true,\n  \"feeApproved\": true,\n  \"notes\": \"Bổ sung khăn\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST /api/actions/task-desk-start",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{idempotencyKey}}",
+                "description": "Điền key mới mỗi ý định; giữ nguyên khi retry cùng body."
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/actions/task-desk-start",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "actions",
+                "task-desk-start"
+              ],
+              "query": []
+            },
+            "description": "Quyền: Admin / Receptionist\nInput: taskId:UUID; reason?:string <=500.\nOutput: {ok:true}.\nPENDING/ASSIGNED/IN_PROGRESS; đúng cycle, stay/DND/khung giờ. Tiếp nhận assignment đang hoạt động cần reason>=5; không cần ca Cleaner.\n",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"taskId\": \"{{taskId}}\",\n  \"reason\": \"Lễ tân trực tiếp thực hiện\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST /api/actions/task-desk-complete",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{idempotencyKey}}",
+                "description": "Điền key mới mỗi ý định; giữ nguyên khi retry cùng body."
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/actions/task-desk-complete",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "actions",
+                "task-desk-complete"
+              ],
+              "query": []
+            },
+            "description": "Quyền: Admin / Receptionist\nInput: taskId:UUID; checklist:string[] <=20, đủ chính xác các mục JSON.parse(task.checklistJson).\nOutput: {ok:true}.\nPhải đã desk-start và IN_PROGRESS; BE chuyển AWAITING_VERIFICATION rồi task-verify passed=true cùng transaction, kết thúc COMPLETED.\n",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"taskId\": \"{{taskId}}\",\n  \"checklist\": [\n    \"Bổ sung khăn\",\n    \"Thu gom khăn bẩn\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST /api/actions/task-verify",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{idempotencyKey}}",
+                "description": "Điền key mới mỗi ý định; giữ nguyên khi retry cùng body."
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/actions/task-verify",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "actions",
+                "task-verify"
+              ],
+              "query": []
+            },
+            "description": "Quyền: Admin / Receptionist\nInput: taskId:UUID; passed:boolean; reason?:<=500, bắt buộc >=5 nếu false.\nOutput: {ok:true}.\nChỉ AWAITING_VERIFICATION. Passed ghi phí đúng một lần/markRoomClean đúng cycle; false về PENDING, version++.\n",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"taskId\": \"{{taskId}}\",\n  \"passed\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST /api/actions/task-cancel",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{idempotencyKey}}",
+                "description": "Điền key mới mỗi ý định; giữ nguyên khi retry cùng body."
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/actions/task-cancel",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "actions",
+                "task-cancel"
+              ],
+              "query": []
+            },
+            "description": "Quyền: Guest, đúng stay; Admin / Receptionist\nInput: taskId:UUID.\nOutput: {ok:true}.\nChỉ PENDING/ASSIGNED trước khi bắt đầu; thu hồi offers và assignment liên quan.\n",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"taskId\": \"{{taskId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST /api/actions/task-reschedule",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{idempotencyKey}}",
+                "description": "Điền key mới mỗi ý định; giữ nguyên khi retry cùng body."
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/actions/task-reschedule",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "actions",
+                "task-reschedule"
+              ],
+              "query": []
+            },
+            "description": "Quyền: Admin / Receptionist\nInput: taskId:UUID; windowStart,windowEnd:ISO; serviceCode?:FULL|TURNOVER|LINEN|BATHROOM|TOWELS.\nOutput: {ok:true}.\nChỉ PENDING; lịch tương lai <=7 ngày; không đổi giữa TURNOVER và yêu cầu trong stay; đổi loại có giá khác cần hủy/xác nhận lại.\n",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"taskId\": \"{{taskId}}\",\n  \"windowStart\": \"{{startAt}}\",\n  \"windowEnd\": \"{{endAt}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST /api/actions/task-review",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{idempotencyKey}}",
+                "description": "Điền key mới mỗi ý định; giữ nguyên khi retry cùng body."
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{guestToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/actions/task-review",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "actions",
+                "task-review"
+              ],
+              "query": []
+            },
+            "description": "Quyền: Guest đúng stay\nInput: taskId:UUID; rating:int 1..5; comment?:<=500.\nOutput: {ok:true}.\nChỉ COMPLETED, một review/task. Source lấy last.cleanerId từ assignment SUBMITTED nhưng chưa kiểm tra last tồn tại: task dọn trực tiếp không có assignment có nguy cơ 500. Cần BE chốt xử lý đánh giá dọn trực tiếp và FE cập nhật điều kiện hiện nút; chưa tái hiện runtime trong lượt này.\n",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"taskId\": \"{{taskId}}\",\n  \"rating\": 5,\n  \"comment\": \"Phòng sạch\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "05. Ăn uống và hỗ trợ riêng",
+      "item": [
+        {
+          "name": "GET /api/food-items",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/food-items",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "food-items"
+              ],
+              "query": []
+            },
+            "description": "Quyền: Admin / Receptionist\nInput: Không có.\nOutput: Service[] FOOD; id,name,unit,price,enabled,...\nTối đa 200; Admin thấy cả mục disabled, Lễ tân chỉ enabled.\n"
+          }
+        },
+        {
+          "name": "GET /api/food-orders",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/food-orders?page=1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "food-orders"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                }
+              ]
+            },
+            "description": "Quyền: Admin / Receptionist\nInput: page?; stayId?:UUID; status?:PENDING|PREPARING|COMPLETED|CANCELLED.\nOutput: Order[] có id,kind,stayId,status,items,itemsJson,total,notes,roomNumber và timestamps.\n30 dòng; items là array parse sẵn. Không gửi status=ALL, bỏ param khi muốn tất cả.\n"
+          }
+        },
+        {
+          "name": "GET /api/special-services",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/special-services?purpose=MEAL_ASSISTANCE",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "special-services"
+              ],
+              "query": [
+                {
+                  "key": "purpose",
+                  "value": "MEAL_ASSISTANCE"
+                }
+              ]
+            },
+            "description": "Quyền: Admin / Receptionist có canAccessSpecialServices\nInput: purpose?:MEAL_ASSISTANCE|PRIVATE_SUPPORT (mặc định MEAL_ASSISTANCE).\nOutput: Service[] SPECIAL của đúng purpose.\nTối đa 200; luôn truyền purpose để tách hai danh mục.\n"
+          }
+        },
+        {
+          "name": "GET /api/special-requests",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/special-requests?purpose=MEAL_ASSISTANCE&page=1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "special-requests"
+              ],
+              "query": [
+                {
+                  "key": "purpose",
+                  "value": "MEAL_ASSISTANCE"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                }
+              ]
+            },
+            "description": "Quyền: Admin / Receptionist có canAccessSpecialServices\nInput: purpose?:MEAL_ASSISTANCE|PRIVATE_SUPPORT; page?; stayId?:UUID; status?:PENDING|PREPARING|COMPLETED|CANCELLED.\nOutput: Order[] SPECIAL của đúng purpose, có items,roomNumber.\n30 dòng; quyền từ DB; purpose mặc định MEAL_ASSISTANCE.\n"
+          }
+        },
+        {
+          "name": "POST /api/actions/food-item",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{idempotencyKey}}",
+                "description": "Điền key mới mỗi ý định; giữ nguyên khi retry cùng body."
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/actions/food-item",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "actions",
+                "food-item"
+              ],
+              "query": []
+            },
+            "description": "Quyền: Admin\nInput: id?:UUID; code?:trim 2..50; name:trim 2..120; unit:trim 1..30; price:VND; enabled?:boolean mặc định true.\nOutput: {id:serviceId}.\nTạo/sửa catalogue FOOD, code tự sinh nếu không nhập.\n",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Nước suối\",\n  \"unit\": \"Chai\",\n  \"price\": 10000,\n  \"enabled\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST /api/actions/special-service",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{idempotencyKey}}",
+                "description": "Điền key mới mỗi ý định; giữ nguyên khi retry cùng body."
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/actions/special-service",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "actions",
+                "special-service"
+              ],
+              "query": []
+            },
+            "description": "Quyền: Admin\nInput: purpose:MEAL_ASSISTANCE|PRIVATE_SUPPORT; các trường như food-item.\nOutput: {id:serviceId}.\nKhông đổi mục catalogue sang purpose khác.\n",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"purpose\": \"MEAL_ASSISTANCE\",\n  \"name\": \"Hỗ trợ bữa ăn\",\n  \"unit\": \"Lần\",\n  \"price\": 30000,\n  \"enabled\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST /api/actions/food-order",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{idempotencyKey}}",
+                "description": "Điền key mới mỗi ý định; giữ nguyên khi retry cùng body."
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/actions/food-order",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "actions",
+                "food-order"
+              ],
+              "query": []
+            },
+            "description": "Quyền: Admin / Receptionist\nInput: stayId:UUID; items:array 1..30 [{serviceId:UUID,quantity:int 1..1000,notes?:<=300}]; notes?:<=1000.\nOutput: {id:orderId,status:\"PENDING\",total}.\nChỉ stay OPEN, catalogue enabled FOOD; không trùng serviceId trong items; BE snapshot giá/tên, tổng <=1 tỷ.\n",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"stayId\": \"{{stayId}}\",\n  \"items\": [\n    {\n      \"serviceId\": \"{{foodServiceId}}\",\n      \"quantity\": 2,\n      \"notes\": \"\"\n    }\n  ],\n  \"notes\": \"\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST /api/actions/special-request",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{idempotencyKey}}",
+                "description": "Điền key mới mỗi ý định; giữ nguyên khi retry cùng body."
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/actions/special-request",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "actions",
+                "special-request"
+              ],
+              "query": []
+            },
+            "description": "Quyền: Admin / Receptionist có canAccessSpecialServices\nInput: purpose:MEAL_ASSISTANCE|PRIVATE_SUPPORT; stayId,items,notes như food-order.\nOutput: {id:orderId,status:\"PENDING\",total}.\nChỉ dùng catalogue SPECIAL đúng purpose; không gọi điện/gửi tin ra bên ngoài.\n",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"purpose\": \"MEAL_ASSISTANCE\",\n  \"stayId\": \"{{stayId}}\",\n  \"items\": [\n    {\n      \"serviceId\": \"{{specialServiceId}}\",\n      \"quantity\": 1\n    }\n  ],\n  \"notes\": \"\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST /api/actions/food-order-status",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{idempotencyKey}}",
+                "description": "Điền key mới mỗi ý định; giữ nguyên khi retry cùng body."
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/actions/food-order-status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "actions",
+                "food-order-status"
+              ],
+              "query": []
+            },
+            "description": "Quyền: Admin / Receptionist\nInput: id:orderId UUID; status:PENDING|PREPARING|COMPLETED|CANCELLED.\nOutput: {id,status,total}.\nPENDING → PREPARING/CANCELLED; PREPARING → COMPLETED/CANCELLED. Cùng status trả hiện trạng; trạng thái cuối không chuyển tiếp. Chỉ COMPLETED ghi StayServiceItems, đúng một lần.\n",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"{{orderId}}\",\n  \"status\": \"PREPARING\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST /api/actions/special-request-status",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{idempotencyKey}}",
+                "description": "Điền key mới mỗi ý định; giữ nguyên khi retry cùng body."
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/actions/special-request-status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "actions",
+                "special-request-status"
+              ],
+              "query": []
+            },
+            "description": "Quyền: Admin / Receptionist có canAccessSpecialServices\nInput: id:orderId UUID; status:PENDING|PREPARING|COMPLETED|CANCELLED.\nOutput: {id,status,total}.\nPENDING → PREPARING/CANCELLED; PREPARING → COMPLETED/CANCELLED. Cùng status trả hiện trạng; trạng thái cuối không chuyển tiếp. Chỉ COMPLETED ghi StayServiceItems, đúng một lần.\n",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"{{orderId}}\",\n  \"status\": \"PREPARING\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "06. Quản trị và sự cố",
+      "item": [
+        {
+          "name": "GET /api/users",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users"
+              ],
+              "query": []
+            },
+            "description": "Quyền: Admin\nInput: Không có.\nOutput: {id,username,name,role,enabled,canAccessSpecialServices}[]; không có passwordHash.\nKhông phân trang.\n"
+          }
+        },
+        {
+          "name": "GET /api/audit",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/audit?page=1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "audit"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                }
+              ]
+            },
+            "description": "Quyền: Admin\nInput: page?.\nOutput: AuditLog[] mới nhất trước.\n30 dòng.\n"
+          }
+        },
+        {
+          "name": "GET /api/maintenance",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/maintenance?page=1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "maintenance"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                }
+              ]
+            },
+            "description": "Quyền: Admin / Receptionist\nInput: page?.\nOutput: Maintenance[] có roomNumber.\n30 dòng.\n"
+          }
+        },
+        {
+          "name": "GET /api/incidents",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/incidents?page=1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "incidents"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                }
+              ]
+            },
+            "description": "Quyền: Admin / Receptionist\nInput: page?.\nOutput: Incident[] có roomNumber.\n30 dòng.\n"
+          }
+        },
+        {
+          "name": "POST /api/actions/user",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{idempotencyKey}}",
+                "description": "Điền key mới mỗi ý định; giữ nguyên khi retry cùng body."
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/actions/user",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "actions",
+                "user"
+              ],
+              "query": []
+            },
+            "description": "Quyền: Admin\nInput: id?:UUID; username:/[a-zA-Z0-9_.-]{3,80}/; name:1..120; role:Admin|Receptionist; enabled?:boolean=true; canAccessSpecialServices?:boolean; password?:10..100.\nOutput: {id:userId}.\nTạo mới cần password. Cleaner chỉ được giữ ở tài khoản cũ theo rule tương thích; không tạo mới. Sửa user tăng authVersion và thu hồi refresh; không tự khóa/bỏ Admin của chính mình.\n",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"letan_test\",\n  \"name\": \"Lễ tân test\",\n  \"role\": \"Receptionist\",\n  \"enabled\": true,\n  \"canAccessSpecialServices\": false,\n  \"password\": \"{{newPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST /api/actions/room",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{idempotencyKey}}",
+                "description": "Điền key mới mỗi ý định; giữ nguyên khi retry cùng body."
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/actions/room",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "actions",
+                "room"
+              ],
+              "query": []
+            },
+            "description": "Quyền: Admin\nInput: id?:UUID; number:1..120; typeId:UUID; zone:1..120; enabled?:boolean=true; photoUrl?:URL|null.\nOutput: {id:roomId}.\nĐổi cấu hình không thay việc checkin/checkout/mark clean bằng action domain.\n",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"number\": \"T101\",\n  \"typeId\": \"{{typeId}}\",\n  \"zone\": \"Tầng test\",\n  \"enabled\": true,\n  \"photoUrl\": null\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST /api/actions/roomType",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{idempotencyKey}}",
+                "description": "Điền key mới mỗi ý định; giữ nguyên khi retry cùng body."
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/actions/roomType",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "actions",
+                "roomType"
+              ],
+              "query": []
+            },
+            "description": "Quyền: Admin\nInput: id?:UUID; name:1..120; capacity:int 1..20; rate:{hour:VND,night:VND,day?:VND=0,extraHour:VND,graceMinutes:int 0..60}.\nOutput: {id:typeId}.\nGiá mới không sửa snapshot stay đã nhận phòng. day chỉ phục vụ dữ liệu cũ.\n",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Loại phòng test\",\n  \"capacity\": 2,\n  \"rate\": {\n    \"hour\": 80000,\n    \"night\": 250000,\n    \"extraHour\": 50000,\n    \"graceMinutes\": 15\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST /api/actions/service",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{idempotencyKey}}",
+                "description": "Điền key mới mỗi ý định; giữ nguyên khi retry cùng body."
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/actions/service",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "actions",
+                "service"
+              ],
+              "query": []
+            },
+            "description": "Quyền: Admin\nInput: id?:UUID; code:/[A-Z_]{2,30}/; name,unit:1..120; price:VND; cleaning?,fullClean?:boolean=false; enabled?:boolean=true.\nOutput: {id:serviceId}.\nChỉ quản lý dịch vụ thường; cleaning=true bị từ chối, danh mục dọn phòng hệ thống do migration quản lý. FOOD/SPECIAL dùng action catalogue riêng.\n",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"WATER_TEST\",\n  \"name\": \"Dịch vụ thử\",\n  \"unit\": \"Lần\",\n  \"price\": 10000,\n  \"cleaning\": false,\n  \"fullClean\": false,\n  \"enabled\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST /api/actions/maintenance",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{idempotencyKey}}",
+                "description": "Điền key mới mỗi ý định; giữ nguyên khi retry cùng body."
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/actions/maintenance",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "actions",
+                "maintenance"
+              ],
+              "query": []
+            },
+            "description": "Quyền: Admin / Receptionist\nInput: roomId:UUID; startsAt,endsAt:ISO; reason:string 3..500.\nOutput: {id:maintenanceId}.\nKiểm tra lịch và xung đột trong transaction.\n",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"roomId\": \"{{roomId}}\",\n  \"startsAt\": \"{{startAt}}\",\n  \"endsAt\": \"{{endAt}}\",\n  \"reason\": \"Kiểm tra thiết bị phòng\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST /api/actions/maintenance-resolve",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{idempotencyKey}}",
+                "description": "Điền key mới mỗi ý định; giữ nguyên khi retry cùng body."
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/actions/maintenance-resolve",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "actions",
+                "maintenance-resolve"
+              ],
+              "query": []
+            },
+            "description": "Quyền: Admin / Receptionist\nInput: id:maintenanceId UUID.\nOutput: {ok:true}.\nTải lại rooms/maintenance.\n",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"{{maintenanceId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST /api/actions/incident",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{idempotencyKey}}",
+                "description": "Điền key mới mỗi ý định; giữ nguyên khi retry cùng body."
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/actions/incident",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "actions",
+                "incident"
+              ],
+              "query": []
+            },
+            "description": "Quyền: Admin / Receptionist / Cleaner cũ\nInput: roomId:UUID; description:string 5..500.\nOutput: {id:incidentId}.\nCleaner chỉ báo tại phòng đã được giao; tải lại incidents/notifications.\n",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"roomId\": \"{{roomId}}\",\n  \"description\": \"Thiết bị phòng cần kiểm tra\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST /api/actions/incident-resolve",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{idempotencyKey}}",
+                "description": "Điền key mới mỗi ý định; giữ nguyên khi retry cùng body."
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/actions/incident-resolve",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "actions",
+                "incident-resolve"
+              ],
+              "query": []
+            },
+            "description": "Quyền: Admin / Receptionist\nInput: id:incidentId UUID; resolution:string 5..500.\nOutput: {ok:true}.\nGhi RESOLVED và thời điểm giải quyết.\n",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"{{incidentId}}\",\n  \"resolution\": \"Đã kiểm tra và xử lý\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "07. CRM, báo cáo và AI",
+      "item": [
+        {
+          "name": "GET /api/campaigns",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/campaigns",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "campaigns"
+              ],
+              "query": []
+            },
+            "description": "Quyền: Admin\nInput: Không có.\nOutput: Campaign[] có thống kê từ view.\nKhông phân trang.\n"
+          }
+        },
+        {
+          "name": "GET /api/vouchers",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/vouchers",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "vouchers"
+              ],
+              "query": []
+            },
+            "description": "Quyền: Admin\nInput: Không có.\nOutput: Voucher[].\nKhông phân trang.\n"
+          }
+        },
+        {
+          "name": "POST /api/actions/campaign",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{idempotencyKey}}",
+                "description": "Điền key mới mỗi ý định; giữ nguyên khi retry cùng body."
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/actions/campaign",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "actions",
+                "campaign"
+              ],
+              "query": []
+            },
+            "description": "Quyền: Admin\nInput: id?:UUID; name:3..120; channel:2..80; startsAt,endsAt:ISO; budget:VND; draft?:<=2000.\nOutput: {id:campaignId}.\nChỉ lưu chiến dịch/nội dung, không tự gửi ra ngoài.\n",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Chiến dịch test\",\n  \"channel\": \"Trực tiếp\",\n  \"startsAt\": \"{{startAt}}\",\n  \"endsAt\": \"{{endAt}}\",\n  \"budget\": 0,\n  \"draft\": \"\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST /api/actions/voucher",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{idempotencyKey}}",
+                "description": "Điền key mới mỗi ý định; giữ nguyên khi retry cùng body."
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/actions/voucher",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "actions",
+                "voucher"
+              ],
+              "query": []
+            },
+            "description": "Quyền: Admin\nInput: id?:UUID; code:/[A-Z0-9_-]{3,40}/; discount:VND>0; minTotal:VND; startsAt,endsAt:ISO; maxUses:int 1..100000; perCustomer:int 1..100; enabled?:boolean=true.\nOutput: {id:voucherId}.\nKiểm tra điều kiện/giới hạn lúc checkout; không tính giảm giá chính thức ở FE.\n",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"TEST2026\",\n  \"discount\": 10000,\n  \"minTotal\": 50000,\n  \"startsAt\": \"{{startAt}}\",\n  \"endsAt\": \"{{endAt}}\",\n  \"maxUses\": 10,\n  \"perCustomer\": 1,\n  \"enabled\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST /api/actions/membership",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{idempotencyKey}}",
+                "description": "Điền key mới mỗi ý định; giữ nguyên khi retry cùng body."
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/actions/membership",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "actions",
+                "membership"
+              ],
+              "query": []
+            },
+            "description": "Quyền: Admin\nInput: customerId:UUID; tier:STANDARD|SILVER|GOLD.\nOutput: {ok:true}.\nĐọc lại customers/customer-history.\n",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customerId\": \"{{customerId}}\",\n  \"tier\": \"SILVER\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "GET /api/dashboard",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/dashboard",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "dashboard"
+              ],
+              "query": []
+            },
+            "description": "Quyền: Admin / Receptionist\nInput: from?,to?:ISO phải có cùng nhau và to>from; chỉ Admin được truyền range.\nOutput: Lễ tân: {roomCounts,occupied,pending,verifying,arrivals,departures}; Admin thêm revenue,collected,debt,unpaidInvoices,report.\nreport có from,to,bySource:{ROOM,SERVICE,FOOD,SPECIAL},invoiceCounts:{UNPAID,PARTIAL,PAID},arrivals,departures,stays,averageStayHours,usedRooms,occupancyRate. Không có range thì tài chính tổng lịch sử, occupancy dùng hôm nay.\n"
+          }
+        },
+        {
+          "name": "GET /api/reports.csv",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/reports.csv",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "reports.csv"
+              ],
+              "query": []
+            },
+            "description": "Quyền: Admin\nInput: from?,to?:ISO như dashboard.\nOutput: text/csv UTF-8 BOM, attachment stayflow.csv.\nFE dùng responseType:text, không parse JSON.\n"
+          }
+        },
+        {
+          "name": "GET /api/forecast",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/forecast?days=7",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "forecast"
+              ],
+              "query": [
+                {
+                  "key": "days",
+                  "value": "7"
+                }
+              ]
+            },
+            "description": "Quyền: Admin / Receptionist\nInput: days?:7|30 (mặc định 7).\nOutput: {available:false,message,days:[]} hoặc {available:true,model,simulated:false,historyDays,backtest:{days,revenueMAE,demandMAE},days:[{date,revenue,demand}]}.\nCần ít nhất 56 ngày lịch sử; mô hình weekday-mean-v1, không phải LLM.\n"
+          }
+        },
+        {
+          "name": "POST /api/ai/draft",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/ai/draft",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "ai",
+                "draft"
+              ],
+              "query": []
+            },
+            "description": "Quyền: Guest, đúng stay; Admin / Receptionist\nInput: stayId:UUID; text:trim 3..1000.\nOutput: {serviceCode,checklist,requestedDate,windowStart,windowEnd,clarificationNeeded,clarificationQuestion,provider,requiresConfirmation:true}.\nKhông ghi task; ngày/giờ có thể null; hỏi lại và xác nhận form trước task-create.\n",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"stayId\": \"{{stayId}}\",\n  \"text\": \"Tôi muốn thêm khăn vào chiều mai, vui lòng hỏi lại giờ cụ thể\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST /api/ai/manager",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/ai/manager",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "ai",
+                "manager"
+              ],
+              "query": []
+            },
+            "description": "Quyền: Admin / Receptionist\nInput: question:trim 3..1000.\nOutput: {tool:\"dashboard\"|\"availability\",message,data,asOf} hoặc {message,data:null} khi cần làm rõ.\nRead-only allowlist; dữ liệu vẫn áp quyền theo role.\n",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"question\": \"Có bao nhiêu phòng đang có khách?\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST /api/ai/marketing",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/ai/marketing",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "ai",
+                "marketing"
+              ],
+              "query": []
+            },
+            "description": "Quyền: Admin\nInput: brief:string 5..1000.\nOutput: {draft:string,requiresApproval:true}.\nChỉ tạo bản nháp, không tự gửi.\n",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"brief\": \"Viết lời cảm ơn khách đã lưu trú, không thêm ưu đãi hay giá\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "08. Thông báo",
+      "item": [
+        {
+          "name": "GET /api/notifications",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications?page=1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                }
+              ]
+            },
+            "description": "Quyền: Staff\nInput: page?.\nOutput: Notification[] có id,title,body,taskId,eventKey,isRead,createdAt,...\n30 dòng của user hiện tại; BE lọc thông báo riêng khi mất quyền.\n"
+          }
+        },
+        {
+          "name": "POST /api/actions/notification-read",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{idempotencyKey}}",
+                "description": "Điền key mới mỗi ý định; giữ nguyên khi retry cùng body."
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/actions/notification-read",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "actions",
+                "notification-read"
+              ],
+              "query": []
+            },
+            "description": "Quyền: Staff\nInput: id:notificationId UUID.\nOutput: {ok:true}.\nChỉ thông báo của mình.\n",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"{{notificationId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST /api/actions/device",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{idempotencyKey}}",
+                "description": "Điền key mới mỗi ý định; giữ nguyên khi retry cùng body."
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/actions/device",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "actions",
+                "device"
+              ],
+              "query": []
+            },
+            "description": "Quyền: Staff\nInput: token:ExpoPushToken[...] hoặc ExponentPushToken[...].\nOutput: {ok:true}.\nĐăng ký device token; không đồng nghĩa remote push đã được xác minh. PUSH_ENABLED/FCM/native build là việc cấu hình riêng.\n",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"{{expoPushToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "09. Cleaner — tương thích",
+      "item": [
+        {
+          "name": "GET /api/cleaners",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/cleaners",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "cleaners"
+              ],
+              "query": []
+            },
+            "description": "Quyền: Admin / Receptionist\nInput: Không có.\nOutput: {id,name,enabled,zone,skills,accepting,inShift,busy}[]\nDữ liệu tài khoản Cleaner cũ, không dùng làm yêu cầu bắt buộc cho dọn trực tiếp.\nLuồng tương thích Cleaner cũ."
+          }
+        },
+        {
+          "name": "GET /api/offers",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/offers",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "offers"
+              ],
+              "query": []
+            },
+            "description": "Quyền: Cleaner cũ\nInput: Không có.\nOutput: Offer[] của mình còn hạn, có serverNow,taskId,expiresAt,roomNumber,serviceName,notes,windowStart,windowEnd.\nserverNow ở từng offer; không dựa đồng hồ điện thoại làm quyết định accept.\nLuồng tương thích Cleaner cũ."
+          }
+        },
+        {
+          "name": "GET /api/cleaner-status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/cleaner-status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "cleaner-status"
+              ],
+              "query": []
+            },
+            "description": "Quyền: Cleaner cũ\nInput: Không có.\nOutput: {userId,zone,skills,accepting,inShift,busy,...} hoặc null nếu thiếu profile.\nbusy/inShift tính từ DB.\nLuồng tương thích Cleaner cũ."
+          }
+        },
+        {
+          "name": "POST /api/actions/cleaner",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{idempotencyKey}}",
+                "description": "Điền key mới mỗi ý định; giữ nguyên khi retry cùng body."
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/actions/cleaner",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "actions",
+                "cleaner"
+              ],
+              "query": []
+            },
+            "description": "Quyền: Admin\nInput: userId:UUID; zone:1..120; skills:array >=1 FULL|TURNOVER|LINEN|BATHROOM|TOWELS; startsAt,endsAt:ISO.\nOutput: {ok:true}.\nCấu hình hồ sơ/ca cho Cleaner cũ; không phải tạo tài khoản Cleaner mới.\nLuồng tương thích Cleaner cũ.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"{{cleanerId}}\",\n  \"zone\": \"Tầng 1\",\n  \"skills\": [\n    \"FULL\",\n    \"TURNOVER\",\n    \"TOWELS\"\n  ],\n  \"startsAt\": \"{{startAt}}\",\n  \"endsAt\": \"{{endAt}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST /api/actions/cleaner-availability",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{idempotencyKey}}",
+                "description": "Điền key mới mỗi ý định; giữ nguyên khi retry cùng body."
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/actions/cleaner-availability",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "actions",
+                "cleaner-availability"
+              ],
+              "query": []
+            },
+            "description": "Quyền: Cleaner cũ\nInput: accepting:boolean.\nOutput: {ok:true}.\nKhông cho FE tự thay busy/inShift.\nLuồng tương thích Cleaner cũ.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"accepting\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST /api/actions/offer-accept",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{idempotencyKey}}",
+                "description": "Điền key mới mỗi ý định; giữ nguyên khi retry cùng body."
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/actions/offer-accept",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "actions",
+                "offer-accept"
+              ],
+              "query": []
+            },
+            "description": "Quyền: Cleaner cũ\nInput: offerId:UUID.\nOutput: {id:assignmentId,taskId}.\nKiểm tra chủ offer, hạn, version, eligibility trong transaction; chỉ người thắng nhận được assignment.\nLuồng tương thích Cleaner cũ.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"offerId\": \"{{offerId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST /api/actions/offer-reject",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{idempotencyKey}}",
+                "description": "Điền key mới mỗi ý định; giữ nguyên khi retry cùng body."
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/actions/offer-reject",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "actions",
+                "offer-reject"
+              ],
+              "query": []
+            },
+            "description": "Quyền: Cleaner cũ\nInput: offerId:UUID.\nOutput: {ok:true}.\nChỉ offer của chính mình.\nLuồng tương thích Cleaner cũ.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"offerId\": \"{{offerId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST /api/actions/task-assign",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{idempotencyKey}}",
+                "description": "Điền key mới mỗi ý định; giữ nguyên khi retry cùng body."
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/actions/task-assign",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "actions",
+                "task-assign"
+              ],
+              "query": []
+            },
+            "description": "Quyền: Admin / Receptionist\nInput: taskId:UUID; cleanerId:UUID.\nOutput: {id:assignmentId,taskId}.\nTask PENDING, gần khung giờ <=15 phút, Cleaner eligible.\nLuồng tương thích Cleaner cũ.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"taskId\": \"{{taskId}}\",\n  \"cleanerId\": \"{{cleanerId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST /api/actions/task-reassign",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{idempotencyKey}}",
+                "description": "Điền key mới mỗi ý định; giữ nguyên khi retry cùng body."
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/actions/task-reassign",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "actions",
+                "task-reassign"
+              ],
+              "query": []
+            },
+            "description": "Quyền: Admin / Receptionist\nInput: taskId:UUID; reason:string >=5 <=500.\nOutput: {ok:true}.\nTask PENDING/ASSIGNED/IN_PROGRESS → PENDING, đóng assignment cũ và revoke offers, version++; không tự giao khi mất socket.\nLuồng tương thích Cleaner cũ.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"taskId\": \"{{taskId}}\",\n  \"reason\": \"Điều phối lại người thực hiện\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST /api/actions/task-start",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{idempotencyKey}}",
+                "description": "Điền key mới mỗi ý định; giữ nguyên khi retry cùng body."
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/actions/task-start",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "actions",
+                "task-start"
+              ],
+              "query": []
+            },
+            "description": "Quyền: Cleaner cũ\nInput: taskId:UUID.\nOutput: {ok:true}.\nĐúng assignment đang hoạt động; khung giờ, stay/DND/cycle hợp lệ.\nLuồng tương thích Cleaner cũ.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"taskId\": \"{{taskId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST /api/actions/task-submit",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{idempotencyKey}}",
+                "description": "Điền key mới mỗi ý định; giữ nguyên khi retry cùng body."
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/actions/task-submit",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "actions",
+                "task-submit"
+              ],
+              "query": []
+            },
+            "description": "Quyền: Cleaner cũ\nInput: taskId:UUID; checklist:string[] <=20 đầy đủ như checklistJson.\nOutput: {ok:true}.\nIN_PROGRESS → AWAITING_VERIFICATION; desk task-verify sau đó.\nLuồng tương thích Cleaner cũ.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"taskId\": \"{{taskId}}\",\n  \"checklist\": [\n    \"Bổ sung khăn\",\n    \"Thu gom khăn bẩn\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

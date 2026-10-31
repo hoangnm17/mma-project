@@ -1,41 +1,28 @@
-This is an Expo/React Native mobile application. Prioritize mobile-first patterns, performance, and cross-platform compatibility.
+# StayFlow — shared project instructions
 
-## Expo has changed — do not trust your training data
+This repository has two independently installed packages: backend/ (Express/MongoDB) and frontend/ (Expo/React Native mobile and guest web). Shared contracts and role briefs live in docs/. All paths here are relative to the repository root.
 
-Expo ships breaking changes every SDK release. APIs you remember are likely renamed, moved, or removed. Before writing any code that touches an Expo, EAS, or React Native API:
+## Read before working
 
-1. Read the major version of the `expo` package in `package.json`.
-2. Fetch the matching versioned docs: `https://docs.expo.dev/versions/v<major>.0.0/`
-3. For anything else, fetch https://docs.expo.dev/llms.txt — an index of all Expo docs with corrections to common LLM misconceptions. Follow its links to the specific page you need; never answer from memory.
+- Read docs/agents/SHARED_API_RULES.md, the task-relevant sections of docs/team-handoff.md, and docs/api-reference-current.md.
+- Backend tasks: read backend/AGENTS.md and docs/agents/BE_AGENT.md.
+- Frontend tasks: read frontend/AGENTS.md, applicable nested rules, and docs/agents/FE_MOBILE_AGENT.md. Expo-specific rules were preserved in frontend/AGENTS.md.
+- For work spanning both, read both roles and coordinate contracts within the requested task. Do not create extra Agents or run the entire backlog just because these files describe two roles.
+- Inspect current source and preserve unrelated working-tree changes. Existing API documentation is a dated snapshot, not evidence of the deployed server/APK version.
 
-## Commands
+## Architecture and workflow
 
-Use `bunx` instead of `npx` if the project uses bun (`bun.lock` present).
+- backend/ owns validation, database transactions, permissions, pricing, state transitions, jobs and API tests. frontend/ owns screens, forms, session, query cache, notification client and app builds.
+- Current workflow: Admin/Receptionist, HOUR/NIGHT, direct desk housekeeping, FOOD/SPECIAL orders and transactional checkout payments. Cleaner/DAY material is compatibility history.
+- Keep docs/api-reference-current.md and docs/stayflow-team.postman_collection.json aligned when changing contracts; finish with the role handoff template.
+- Root package.json contains orchestration scripts only. Frontend dependencies/config/env and Expo CLI live in frontend/; backend dependencies/env live in backend/. Do not move secret values into shared docs.
+- Node >=22.13 is required. Install both packages with npm run setup from the root, or npm ci in each package; npm ci at the root does not install application dependencies.
+- Run Expo/EAS from frontend/; inspect frontend/package.json for the installed SDK and follow frontend/AGENTS.md before changing Expo/EAS/React Native APIs.
 
-```bash
-npx expo install <package>  # ALWAYS use instead of npm/yarn/pnpm/bun add — resolves SDK-compatible versions
-npx expo start              # start the dev server
-npx expo lint               # lint
-npx tsc --noEmit            # typecheck
-npx expo-doctor             # diagnose dependency and config issues
-npx expo install --fix      # fix incompatible package versions
-```
+## Checks and commands
 
-Run lint and typecheck before declaring any task done.
-
-## Navigation & Routing
-
-- Use **Expo Router** for all navigation. Routes live in `src/app/` — every file there is a screen, `_layout.tsx` files define navigators. Keep non-route code (components, hooks, utils) outside `src/app/`.
-- Import `Link`, `router`, and `useLocalSearchParams` from `expo-router`.
-- Docs: https://docs.expo.dev/router/introduction.md
-
-## Building with EAS
-
-Use EAS to build, sign, and submit the app in the cloud (`eas build`, `eas submit`) and to ship over-the-air updates (`eas update`) — no local Xcode or Android Studio required. Run EAS CLI as `bunx eas-cli <command>` in Bun projects, or `npx eas-cli@latest <command>` otherwise; substitute that for bare `eas` in docs examples.
-Docs: https://docs.expo.dev/eas/index.md
-
-## Rules
-
-- If `ios/` and `android/` directories do not exist, they are generated (Continuous Native Generation). Never create or edit them by hand — configure native behavior in `app.json` and config plugins.
-- Expo Go only includes its bundled native modules. After adding a library with native code, the app needs a development build: `npx expo run:ios|android` locally, or `eas build --profile development`.
-- Prefer recommended Expo modules over third-party libraries, and check your available skills before adding dependencies. Docs: https://docs.expo.dev/versions/latest/index.md
+- From root: npm run dev:backend, npm run dev:frontend, npm run web, npm run export:web, npm run test:ui.
+- Run npm run lint and npm run typecheck before declaring completion; run relevant backend unit/integration or UI/export checks for the change. Report what was not verified.
+- npm test runs backend unit/HTTP tests. npm run test:integration:local creates an isolated local Mongo replica set, not the configured demo/cloud DB.
+- Keep Mongo schema/migration history and data intact. Do not reset/seed an existing deployed database to make an upgrade pass.
+- Quick start: README.md, backend/README.md, frontend/README.md and docs/agents/README.md.

@@ -12,7 +12,13 @@ if (
   );
 const passwordHash = await bcrypt.hash(process.env.DEMO_SEED_PASSWORD, 12);
 await transaction(async (tx) => {
-  if (await one(tx, "SELECT id FROM Users WHERE username='admin'")) {
+  if (
+    await one(tx, (p) => ({
+      collection: "Users",
+      filter: { username: "admin" },
+      project: { id: 1 },
+    }))
+  ) {
     console.log("Demo đã tồn tại, không thay đổi dữ liệu.");
     return;
   }
@@ -37,7 +43,16 @@ await transaction(async (tx) => {
     users.push(user);
     await query(
       tx,
-      "INSERT Users(id,username,name,role,passwordHash) VALUES(@id,@username,@name,@role,@passwordHash)",
+      (p) => ({
+        collection: "Users",
+        insert: {
+          id: p.id,
+          username: p.username,
+          name: p.name,
+          role: p.role,
+          passwordHash: p.passwordHash,
+        },
+      }),
       { ...user, passwordHash },
     );
   }
@@ -57,7 +72,15 @@ await transaction(async (tx) => {
     types.push(type);
     await query(
       tx,
-      "INSERT RoomTypes(id,name,capacity,rateJson) VALUES(@id,@name,@capacity,@rateJson)",
+      (p) => ({
+        collection: "RoomTypes",
+        insert: {
+          id: p.id,
+          name: p.name,
+          capacity: p.capacity,
+          rateJson: p.rateJson,
+        },
+      }),
       { ...type, rateJson: JSON.stringify(type.rate) },
     );
   }
@@ -72,7 +95,10 @@ await transaction(async (tx) => {
     rooms.push(room);
     await query(
       tx,
-      "INSERT Rooms(id,number,typeId,zone) VALUES(@id,@number,@typeId,@zone)",
+      (p) => ({
+        collection: "Rooms",
+        insert: { id: p.id, number: p.number, typeId: p.typeId, zone: p.zone },
+      }),
       room,
     );
   }
@@ -87,7 +113,18 @@ await transaction(async (tx) => {
   ])
     await query(
       tx,
-      "INSERT Services(id,code,name,unit,price,cleaning,fullClean) VALUES(@id,@code,@name,@unit,@price,@cleaning,@fullClean)",
+      (p) => ({
+        collection: "Services",
+        insert: {
+          id: p.id,
+          code: p.code,
+          name: p.name,
+          unit: p.unit,
+          price: p.price,
+          cleaning: p.cleaning,
+          fullClean: p.fullClean,
+        },
+      }),
       {
         id: id(),
         code,
@@ -101,7 +138,15 @@ await transaction(async (tx) => {
   for (const [i, user] of users.filter((u) => u.role === "Cleaner").entries()) {
     await query(
       tx,
-      "INSERT CleanerProfiles(userId,zone,skills,accepting) VALUES(@userId,@zone,@skills,@accepting)",
+      (p) => ({
+        collection: "CleanerProfiles",
+        insert: {
+          userId: p.userId,
+          zone: p.zone,
+          skills: p.skills,
+          accepting: p.accepting,
+        },
+      }),
       {
         userId: user.id,
         zone: i < 3 ? "Tầng 1" : "Tầng 2",
@@ -115,7 +160,15 @@ await transaction(async (tx) => {
     );
     await query(
       tx,
-      "INSERT CleanerShifts(id,userId,startsAt,endsAt) VALUES(@id,@userId,@start,@end)",
+      (p) => ({
+        collection: "CleanerShifts",
+        insert: {
+          id: p.id,
+          userId: p.userId,
+          startsAt: p.start,
+          endsAt: p.end,
+        },
+      }),
       {
         id: id(),
         userId: user.id,
@@ -128,7 +181,10 @@ await transaction(async (tx) => {
     const customerId = id();
     await query(
       tx,
-      "INSERT Customers(id,name,phone) VALUES(@id,@name,@phone)",
+      (p) => ({
+        collection: "Customers",
+        insert: { id: p.id, name: p.name, phone: p.phone },
+      }),
       {
         id: customerId,
         name: [
@@ -144,12 +200,34 @@ await transaction(async (tx) => {
     );
     if (i < 3) {
       const stayId = id();
-      await query(tx, "UPDATE Rooms SET cycle=1 WHERE id=@id", {
-        id: rooms[i].id,
-      });
       await query(
         tx,
-        "INSERT Stays(id,roomId,customerId,startedAt,expectedEnd,status,guests,mode,rateJson,cycle) VALUES(@id,@roomId,@customerId,@start,@end,'OPEN',2,'DAY',@rateJson,1)",
+        (p) => ({
+          collection: "Rooms",
+          filter: { id: p.id },
+          update: { $set: { cycle: 1 } },
+        }),
+        {
+          id: rooms[i].id,
+        },
+      );
+      await query(
+        tx,
+        (p) => ({
+          collection: "Stays",
+          insert: {
+            id: p.id,
+            roomId: p.roomId,
+            customerId: p.customerId,
+            startedAt: p.start,
+            expectedEnd: p.end,
+            status: "OPEN",
+            guests: 2,
+            mode: "DAY",
+            rateJson: p.rateJson,
+            cycle: 1,
+          },
+        }),
         {
           id: stayId,
           roomId: rooms[i].id,
@@ -172,7 +250,19 @@ await transaction(async (tx) => {
     } else
       await query(
         tx,
-        "INSERT Bookings(id,roomId,customerId,startsAt,endsAt,status,guests,mode) VALUES(@id,@roomId,@customerId,@start,@end,'CONFIRMED',2,'NIGHT')",
+        (p) => ({
+          collection: "Bookings",
+          insert: {
+            id: p.id,
+            roomId: p.roomId,
+            customerId: p.customerId,
+            startsAt: p.start,
+            endsAt: p.end,
+            status: "CONFIRMED",
+            guests: 2,
+            mode: "NIGHT",
+          },
+        }),
         {
           id: id(),
           roomId: rooms[i].id,

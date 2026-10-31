@@ -52,19 +52,10 @@ export function weeklyForecast(series, horizon = 7) {
   };
 }
 export async function forecast(db, horizon) {
-  const invoices = await query(
-    db,
-    "SELECT CONVERT(char(10),DATEADD(hour,7,createdAt),23) date,SUM(total) revenue FROM Invoices WHERE createdAt<DATEADD(hour,-7,CONVERT(datetime2,CONVERT(date,DATEADD(hour,7,SYSUTCDATETIME())))) GROUP BY CONVERT(char(10),DATEADD(hour,7,createdAt),23)",
-  );
+  const invoices = await query(db, "revenueByDay");
   if (!invoices.length) return weeklyForecast([], horizon);
-  const demand = await query(
-    db,
-    "SELECT CONVERT(char(10),DATEADD(hour,7,startedAt),23) date,COUNT(*) demand FROM Stays GROUP BY CONVERT(char(10),DATEADD(hour,7,startedAt),23)",
-  );
-  const adjusted = await query(
-    db,
-    "SELECT CONVERT(char(10),DATEADD(hour,7,i.createdAt),23) date,SUM(a.amount) amount FROM Adjustments a JOIN Invoices i ON i.id=a.invoiceId GROUP BY CONVERT(char(10),DATEADD(hour,7,i.createdAt),23)",
-  );
+  const demand = await query(db, "demandByDay");
+  const adjusted = await query(db, "adjustmentsByDay");
   const start = new Date(invoices.map((r) => r.date).sort()[0]);
   const end = new Date(
     new Date(Date.now() + 7 * 3600000).toISOString().slice(0, 10),

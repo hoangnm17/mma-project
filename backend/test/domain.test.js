@@ -5,6 +5,8 @@ import {
   priceRoom,
   rankCleaners,
   validateDraft,
+  normalizePhone,
+  expectedDeparture,
 } from "../src/domain.js";
 const start = "2026-10-29T00:00:00Z";
 for (const [minutes, units] of [
@@ -47,6 +49,47 @@ test("Qua đêm đến trưa Việt Nam và phụ thu", () => {
       .total,
     300000,
   );
+});
+test("Qua nhiều đêm tính theo đêm, phụ thu lẻ không vượt giá một đêm", () => {
+  const begin = "2026-10-28T15:00:00Z";
+  const two = priceRoom(policy, begin, "2026-10-30T05:15:00Z", "NIGHT");
+  assert.equal(two.units, 2);
+  assert.equal(two.total, 500000);
+  const late = priceRoom(policy, begin, "2026-10-30T05:16:00Z", "NIGHT");
+  assert.equal(late.units, 2);
+  assert.equal(late.surcharge, 50000);
+  const capped = priceRoom(policy, begin, "2026-10-29T15:00:00Z", "NIGHT");
+  assert.equal(capped.units, 2);
+  assert.equal(capped.surcharge, 0);
+  assert.equal(capped.total, 500000);
+});
+test("Giá qua đêm tăng liên tục qua mốc trưa và giới hạn phụ thu", () => {
+  let previous = 0;
+  for (let minutes = 0; minutes <= 5 * 1440; minutes += 15) {
+    const total = priceRoom(
+      policy,
+      start,
+      new Date(new Date(start).getTime() + minutes * 60000),
+      "NIGHT",
+    ).total;
+    assert(total >= previous);
+    previous = total;
+  }
+});
+test("Giờ dự kiến tự suy ra từ hình thức thuê và múi giờ Việt Nam", () => {
+  assert.equal(expectedDeparture(start, "HOUR").toISOString(), "2026-10-29T01:00:00.000Z");
+  assert.equal(expectedDeparture(start, "NIGHT").toISOString(), "2026-10-29T05:00:00.000Z");
+  assert.equal(
+    expectedDeparture("2026-10-29T05:00:00Z", "NIGHT").toISOString(),
+    "2026-10-30T05:00:00.000Z",
+  );
+});
+test("Số điện thoại Việt Nam có định dạng khác nhau dùng cùng một hồ sơ", () => {
+  for (const phone of ["0912 345 678", "+84 (912) 345-678", "0084912345678"])
+    assert.equal(normalizePhone(phone), "0912345678");
+  assert.equal(normalizePhone("+1 (415) 555-2671"), "+14155552671");
+  for (const phone of ["", "1234", "0912abc345", "0\n12345678"])
+    assert.throws(() => normalizePhone(phone));
 });
 test("Giá snapshot độc lập chính sách mới", () => {
   const snapshot = { ...policy };

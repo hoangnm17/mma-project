@@ -1,13 +1,10 @@
-import { transaction, query } from "./db.js";
+import { transaction, query, database } from "./db.js";
 import { dispatch } from "./services/housekeeping.js";
 import { notifyDesk } from "./repository.js";
 export async function tick(io) {
   await transaction(async (tx) => {
     await dispatch(tx);
-    for (const b of await query(
-      tx,
-      "SELECT b.id,r.number,b.startsAt FROM Bookings b JOIN Rooms r ON r.id=b.roomId WHERE b.status='CONFIRMED' AND b.startsAt BETWEEN SYSUTCDATETIME() AND DATEADD(hour,24,SYSUTCDATETIME())",
-    ))
+    for (const b of await query(tx, "arrivalReminders"))
       await notifyDesk(
         tx,
         "Khách sắp đến",
@@ -15,10 +12,7 @@ export async function tick(io) {
         null,
         "arrival:" + b.id + ":" + new Date(b.startsAt).toISOString(),
       );
-    for (const s of await query(
-      tx,
-      "SELECT s.id,r.number,s.expectedEnd FROM Stays s JOIN Rooms r ON r.id=s.roomId WHERE s.status='OPEN' AND s.expectedEnd<DATEADD(hour,2,SYSUTCDATETIME())",
-    )) {
+    for (const s of await query(tx, "departureReminders")) {
       const overdue = new Date(s.expectedEnd) < new Date();
       await notifyDesk(
         tx,
@@ -35,18 +29,37 @@ export async function tick(io) {
     }
   });
   const events = await transaction(async (tx) => {
-    await query(
-      tx,
-      "UPDATE OutboxEvents SET status='PENDING' WHERE status='PROCESSING' AND nextAttemptAt<SYSUTCDATETIME()",
-    );
-    const rows = await query(
-      tx,
-      "SELECT TOP 20 * FROM OutboxEvents WHERE status='PENDING' AND nextAttemptAt<=SYSUTCDATETIME() ORDER BY createdAt",
-    );
+    await query(tx, (p) => ({
+      collection: "OutboxEvents",
+      filter: {
+        $and: [
+          { status: "PROCESSING" },
+          { nextAttemptAt: { $lt: new Date() } },
+        ],
+      },
+      update: { $set: { status: "PENDING" } },
+    }));
+    const rows = await query(tx, (p) => ({
+      collection: "OutboxEvents",
+      filter: {
+        $and: [{ status: "PENDING" }, { nextAttemptAt: { $lte: new Date() } }],
+      },
+      sort: { createdAt: 1 },
+      limit: 20,
+    }));
     for (const e of rows)
       await query(
         tx,
-        "UPDATE OutboxEvents SET status='PROCESSING',nextAttemptAt=DATEADD(minute,2,SYSUTCDATETIME()) WHERE id=@id",
+        (p) => ({
+          collection: "OutboxEvents",
+          filter: { id: p.id },
+          update: {
+            $set: {
+              status: "PROCESSING",
+              nextAttemptAt: new Date(new Date(new Date()).getTime() + 120000),
+            },
+          },
+        }),
         { id: e.id },
       );
     return rows;
@@ -54,14 +67,17 @@ export async function tick(io) {
   for (const event of events) {
     try {
       const payload = JSON.parse(event.payloadJson);
+      if (event.eventKey.startsWith("special:")) {
+        const user = (await query(await database(), () => ({ collection: "Users", filter: { id: event.userId } })))[0];
+        if (!user?.enabled || !(user.role === "Admin" || (user.role === "Receptionist" && user.canAccessSpecialServices))) {
+          await transaction(tx => query(tx, () => ({ collection: "OutboxEvents", filter: { id: event.id }, update: { $set: { status: "SENT", lastError: "Suppressed: permission revoked" } } })));
+          continue;
+        }
+      }
       io?.to("user:" + event.userId).emit("changed", payload);
       if (process.env.PUSH_ENABLED === "true") {
         const tokens = await transaction((tx) =>
-          query(
-            tx,
-            "SELECT d.token FROM DeviceTokens d JOIN Users u ON u.id=d.userId WHERE d.userId=@userId AND u.enabled=1",
-            { userId: event.userId },
-          ),
+          query(tx, "activeDeviceTokens", { userId: event.userId }),
         );
         if (tokens.length) {
           const response = await fetch("https://exp.host/--/api/v2/push/send", {
@@ -96,7 +112,14 @@ export async function tick(io) {
       await transaction((tx) =>
         query(
           tx,
-          "UPDATE OutboxEvents SET status='SENT',attempts=attempts+1,lastError=NULL WHERE id=@id",
+          (p) => ({
+            collection: "OutboxEvents",
+            filter: { id: p.id },
+            update: {
+              $set: { status: "SENT", lastError: null },
+              $inc: { attempts: 1 },
+            },
+          }),
           { id: event.id },
         ),
       );
@@ -104,7 +127,18 @@ export async function tick(io) {
       await transaction((tx) =>
         query(
           tx,
-          "UPDATE OutboxEvents SET status='PENDING',attempts=attempts+1,lastError=@error,nextAttemptAt=@next WHERE id=@id",
+          (p) => ({
+            collection: "OutboxEvents",
+            filter: { id: p.id },
+            update: {
+              $set: {
+                status: "PENDING",
+                lastError: p.error,
+                nextAttemptAt: p.next,
+              },
+              $inc: { attempts: 1 },
+            },
+          }),
           {
             id: event.id,
             error: e.message.slice(0, 500),

@@ -1,5 +1,8 @@
 import express from "express";
 import path from "node:path";
+import { readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { fileURLToPath } from "node:url";
 import cors from "cors";
 import helmet from "helmet";
 import { rateLimit } from "express-rate-limit";
@@ -7,12 +10,13 @@ import { z } from "zod";
 import { config } from "./config.js";
 import { database, one, query, transaction } from "./db.js";
 import { login, refresh, exchange, authenticate } from "./auth.js";
-import { hash, guestStay, staff, audit } from "./repository.js";
+import { hash, guestStay, staff, audit, canAccessSpecial } from "./repository.js";
 import { assert } from "./domain.js";
 import { hotelAction } from "./services/hotel.js";
 import { housekeepingAction } from "./services/housekeeping.js";
 import { cleaningDraft } from "./services/ai.js";
 import { crmAction } from "./services/crm.js";
+import { orderAction, orderActions } from "./services/orders.js";
 import {
   reserveAi,
   managerAssistant,
@@ -21,11 +25,26 @@ import {
 import { readResource } from "./reads.js";
 export function createApp() {
   const app = express();
+  const webDirectory = process.env.WEB_DIST
+    ? path.resolve(process.env.WEB_DIST)
+    : fileURLToPath(new URL("../../frontend/dist/", import.meta.url));
+  const scriptHashes = new Set();
+  for (const file of ["index.html", "guest.html", "_sitemap.html", "+not-found.html"]) {
+    let html;
+    try { html = readFileSync(path.join(webDirectory, file), "utf8"); }
+    catch (error) { if (error.code === "ENOENT") continue; throw error; }
+    for (const match of html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)) {
+      if (/\bsrc\s*=/.test(match[1]) || !match[2].trim()) continue;
+      scriptHashes.add("'sha256-" + createHash("sha256").update(match[2]).digest("base64") + "'");
+    }
+  }
   app.disable("x-powered-by");
+  app.set("trust proxy", config.trustProxy);
   app.use(
     helmet({
       contentSecurityPolicy: {
         directives: {
+          "script-src": ["'self'", ...scriptHashes],
           "upgrade-insecure-requests":
             process.env.NODE_ENV === "production" ? [] : null,
           "connect-src": [
@@ -50,7 +69,7 @@ export function createApp() {
   );
   app.get("/health", async (req, res) => {
     try {
-      await query(await database(), "SELECT 1 ready");
+      await query(await database(), "health");
       res.json({ status: "ok" });
     } catch {
       res.status(503).json({ status: "database-unavailable" });
@@ -120,8 +139,8 @@ export function createApp() {
     });
   });
   app.get("/api/reports.csv", async (req, res) => {
-    await staff(await database(), req.actor, ["Admin", "Receptionist"]);
-    const d = await readResource(req.actor, "dashboard");
+    await staff(await database(), req.actor, ["Admin"]);
+    const d = await readResource(req.actor, "dashboard", req.query);
     res
       .type("text/csv")
       .attachment("stayflow.csv")
@@ -132,7 +151,19 @@ export function createApp() {
           d.collected +
           "\r\nCông nợ," +
           d.debt +
-          "\r\n",
+          "\r\nTiền phòng," + d.report.bySource.ROOM +
+          "\r\nDịch vụ," + d.report.bySource.SERVICE +
+          "\r\nĂn uống," + d.report.bySource.FOOD +
+          "\r\nDịch vụ riêng," + d.report.bySource.SPECIAL +
+          "\r\nHóa đơn chưa thanh toán," + d.report.invoiceCounts.UNPAID +
+          "\r\nHóa đơn thanh toán một phần," + d.report.invoiceCounts.PARTIAL +
+          "\r\nHóa đơn đã thanh toán," + d.report.invoiceCounts.PAID +
+          "\r\nLượt nhận phòng," + d.report.arrivals +
+          "\r\nLượt trả phòng," + d.report.departures +
+          "\r\nThời gian lưu trú trung bình (giờ)," + d.report.averageStayHours +
+          "\r\nTỷ lệ sử dụng phòng (%)," + d.report.occupancyRate +
+          "\r\nTừ thời điểm," + (d.report.from || "Tất cả") +
+          "\r\nĐến trước thời điểm," + (d.report.to || "Tất cả") + "\r\n",
       );
   });
   app.get("/api/:resource", async (req, res) =>
@@ -153,9 +184,16 @@ export function createApp() {
       if (req.actor.kind === "staff")
         await staff(tx, req.actor, ["Admin", "Receptionist", "Cleaner"]);
       else await guestStay(tx, req.actor, req.actor.stayId);
+      if (actionNeedsSpecial(req.params.action))
+        assert(await canAccessSpecial(tx, req.actor), "Không có quyền sử dụng dịch vụ riêng", 403);
       const old = await one(
         tx,
-        "SELECT * FROM IdempotencyRecords WHERE actorKey=@actorKey AND requestKey=@requestKey",
+        (p) => ({
+          collection: "IdempotencyRecords",
+          filter: {
+            $and: [{ actorKey: p.actorKey }, { requestKey: p.requestKey }],
+          },
+        }),
         { actorKey, requestKey },
       );
       if (old) {
@@ -178,7 +216,7 @@ export function createApp() {
         "incident-resolve",
       ].includes(action);
       const value = await (
-        cleaning ? housekeepingAction : crm ? crmAction : hotelAction
+        orderActions.has(action) ? orderAction : cleaning ? housekeepingAction : crm ? crmAction : hotelAction
       )(tx, req.actor, action, req.body);
       await audit(
         tx,
@@ -197,7 +235,15 @@ export function createApp() {
       );
       await query(
         tx,
-        "INSERT IdempotencyRecords(actorKey,requestKey,requestHash,resultJson) VALUES(@actorKey,@requestKey,@requestHash,@resultJson)",
+        (p) => ({
+          collection: "IdempotencyRecords",
+          insert: {
+            actorKey: p.actorKey,
+            requestKey: p.requestKey,
+            requestHash: p.requestHash,
+            resultJson: p.resultJson,
+          },
+        }),
         {
           actorKey,
           requestKey,
@@ -210,7 +256,7 @@ export function createApp() {
     res.json(result);
   });
   app.use(
-    express.static(path.resolve(process.env.WEB_DIST || "../dist"), {
+    express.static(webDirectory, {
       extensions: ["html"],
     }),
   );
@@ -224,7 +270,7 @@ export function createApp() {
           message: i.message,
         })),
       });
-    if ([2601, 2627, 547].includes(error.number))
+    if ([11000, 121].includes(error.code))
       return res.status(409).json({
         error: "Dữ liệu trùng hoặc liên kết không hợp lệ. Vui lòng tải lại.",
       });
@@ -235,3 +281,4 @@ export function createApp() {
   });
   return app;
 }
+const actionNeedsSpecial = (action) => action.startsWith("special-");

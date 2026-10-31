@@ -12,7 +12,7 @@ Bạn là Senior React Native Developer và Backend Developer. Hãy trực tiế
 
 - Đọc hướng dẫn repository, package.json, cấu trúc source, schema và API hiện có. Tái sử dụng phần phù hợp; không xóa hoặc viết lại toàn bộ dự án đang hoạt động.
 - Nếu có file `StayFlow_React_Native_Agent_Prompt.md`, đọc đặc tả đó để giữ các quy tắc nghiệp vụ chi tiết. Nếu chưa có, dùng phạm vi dưới đây và ghi các quyết định còn thiếu vào `docs/assumptions.md`.
-- Nếu thư mục trống, tạo `mobile/`, `backend/`, `guest-web/`, `docs/`. Guest-web chỉ là form dọn phòng nhỏ, không phải website đặt phòng đầy đủ.
+- Nếu thư mục trống, tạo `mobile/`, `backend/`, `frontend/guest-web/`, `docs/`. Guest-web chỉ là form dọn phòng nhỏ, không phải website đặt phòng đầy đủ.
 - Một cơ sở lưu trú; tiếng Việt; tiền VND; lưu thời gian UTC và diễn giải theo `Asia/Ho_Chi_Minh`.
 - Ba vai trò app: Admin, Receptionist, Cleaner. Khách sử dụng form từ QR/link của lượt lưu trú, không cần cài APK hoặc tạo tài khoản.
 - Dùng modular monolith. Không mở rộng thành nhiều đại lý/chi nhánh, microservices, ví điện tử hoặc hệ thống OTA.

@@ -1,0 +1,1162 @@
+import { orderDefinitions } from "./order-schema.js";
+export const definitions = {
+  ...orderDefinitions,
+  Users: {
+    canAccessSpecialServices: { type: "bool", required: false, default: false },
+    id: {
+      type: "string",
+      required: true,
+    },
+    username: {
+      type: "string",
+      required: true,
+    },
+    name: {
+      type: "string",
+      required: true,
+    },
+    passwordHash: {
+      type: "string",
+      required: true,
+    },
+    role: {
+      type: "string",
+      required: true,
+    },
+    enabled: {
+      type: "bool",
+      required: true,
+      default: true,
+    },
+    authVersion: {
+      type: "number",
+      required: true,
+      default: 1,
+    },
+  },
+  RefreshSessions: {
+    id: {
+      type: "string",
+      required: true,
+    },
+    userId: {
+      type: "string",
+      required: true,
+      ref: ["Users", "id"],
+    },
+    tokenHash: {
+      type: "string",
+      required: true,
+    },
+    expiresAt: {
+      type: "date",
+      required: true,
+    },
+    revoked: {
+      type: "bool",
+      required: true,
+      default: false,
+    },
+  },
+  RoomTypes: {
+    id: {
+      type: "string",
+      required: true,
+    },
+    name: {
+      type: "string",
+      required: true,
+    },
+    capacity: {
+      type: "number",
+      required: true,
+    },
+    rateJson: {
+      type: "string",
+      required: true,
+    },
+  },
+  Rooms: {
+    id: {
+      type: "string",
+      required: true,
+    },
+    number: {
+      type: "string",
+      required: true,
+    },
+    typeId: {
+      type: "string",
+      required: true,
+      ref: ["RoomTypes", "id"],
+    },
+    zone: {
+      type: "string",
+      required: true,
+    },
+    enabled: {
+      type: "bool",
+      required: true,
+      default: true,
+    },
+    cleanState: {
+      type: "string",
+      required: true,
+      default: "CLEAN",
+    },
+    cycle: {
+      type: "number",
+      required: true,
+      default: 0,
+    },
+    photoUrl: {
+      type: "string",
+      required: false,
+      default: null,
+    },
+  },
+  Customers: {
+    id: {
+      type: "string",
+      required: true,
+    },
+    name: {
+      type: "string",
+      required: true,
+    },
+    phone: {
+      type: "string",
+      required: true,
+    },
+    notes: {
+      type: "string",
+      required: true,
+      default: "",
+    },
+    tier: {
+      type: "string",
+      required: true,
+      default: "STANDARD",
+    },
+  },
+  Bookings: {
+    id: {
+      type: "string",
+      required: true,
+    },
+    roomId: {
+      type: "string",
+      required: true,
+      ref: ["Rooms", "id"],
+    },
+    customerId: {
+      type: "string",
+      required: true,
+      ref: ["Customers", "id"],
+    },
+    startsAt: {
+      type: "date",
+      required: true,
+    },
+    endsAt: {
+      type: "date",
+      required: true,
+    },
+    status: {
+      type: "string",
+      required: true,
+    },
+    guests: {
+      type: "number",
+      required: true,
+    },
+    mode: {
+      type: "string",
+      required: true,
+    },
+    createdAt: {
+      type: "date",
+      required: true,
+      default: "$now",
+    },
+    source: {
+      type: "string",
+      required: true,
+      default: "Trực tiếp",
+    },
+    campaignId: {
+      type: "string",
+      required: false,
+      default: null,
+      ref: ["Campaigns", "id"],
+    },
+  },
+  Stays: {
+    id: {
+      type: "string",
+      required: true,
+    },
+    roomId: {
+      type: "string",
+      required: true,
+      ref: ["Rooms", "id"],
+    },
+    customerId: {
+      type: "string",
+      required: true,
+      ref: ["Customers", "id"],
+    },
+    bookingId: {
+      type: "string",
+      required: false,
+      ref: ["Bookings", "id"],
+      default: null,
+    },
+    startedAt: {
+      type: "date",
+      required: true,
+    },
+    expectedEnd: {
+      type: "date",
+      required: true,
+    },
+    endedAt: {
+      type: "date",
+      required: false,
+      default: null,
+    },
+    status: {
+      type: "string",
+      required: true,
+    },
+    guests: {
+      type: "number",
+      required: true,
+    },
+    mode: {
+      type: "string",
+      required: true,
+    },
+    rateJson: {
+      type: "string",
+      required: true,
+    },
+    cycle: {
+      type: "number",
+      required: true,
+    },
+    dnd: {
+      type: "bool",
+      required: true,
+      default: false,
+    },
+    source: {
+      type: "string",
+      required: true,
+      default: "Trực tiếp",
+    },
+    campaignId: {
+      type: "string",
+      required: false,
+      default: null,
+      ref: ["Campaigns", "id"],
+    },
+  },
+  Services: {
+    category: { type: "string", required: false, default: "SERVICE" },
+    specialPurpose: { type: "string", required: false, default: null },
+    id: {
+      type: "string",
+      required: true,
+    },
+    code: {
+      type: "string",
+      required: true,
+    },
+    name: {
+      type: "string",
+      required: true,
+    },
+    unit: {
+      type: "string",
+      required: true,
+    },
+    price: {
+      type: "number",
+      required: true,
+    },
+    cleaning: {
+      type: "bool",
+      required: true,
+      default: false,
+    },
+    fullClean: {
+      type: "bool",
+      required: true,
+      default: false,
+    },
+    enabled: {
+      type: "bool",
+      required: true,
+      default: true,
+    },
+  },
+  StayServiceItems: {
+    category: { type: "string", required: false, default: "SERVICE" },
+    orderId: { type: "string", required: false, default: null, ref: ["Orders", "id"] },
+    id: {
+      type: "string",
+      required: true,
+    },
+    stayId: {
+      type: "string",
+      required: true,
+      ref: ["Stays", "id"],
+    },
+    serviceId: {
+      type: "string",
+      required: true,
+      ref: ["Services", "id"],
+    },
+    name: {
+      type: "string",
+      required: true,
+    },
+    unitPrice: {
+      type: "number",
+      required: true,
+    },
+    quantity: {
+      type: "number",
+      required: true,
+    },
+    taskId: {
+      type: "string",
+      required: false,
+      default: null,
+      ref: ["HousekeepingTasks", "id"],
+    },
+  },
+  Invoices: {
+    originalTotal: { type: "number", required: false },
+    adjustmentAmount: { type: "number", required: false, default: 0 },
+    adjustmentReason: { type: "string", required: false, default: "" },
+    adjustedBy: { type: "string", required: false, default: null, ref: ["Users", "id"] },
+    adjustedAt: { type: "date", required: false, default: null },
+    id: {
+      type: "string",
+      required: true,
+    },
+    stayId: {
+      type: "string",
+      required: true,
+      ref: ["Stays", "id"],
+    },
+    total: {
+      type: "number",
+      required: true,
+    },
+    roomJson: {
+      type: "string",
+      required: true,
+    },
+    discount: {
+      type: "number",
+      required: true,
+      default: 0,
+    },
+    surcharge: {
+      type: "number",
+      required: true,
+      default: 0,
+    },
+    debtReason: {
+      type: "string",
+      required: false,
+      default: null,
+    },
+    createdAt: {
+      type: "date",
+      required: true,
+      default: "$now",
+    },
+  },
+  InvoiceLines: {
+    category: { type: "string", required: false, default: "SERVICE" },
+    id: {
+      type: "string",
+      required: true,
+    },
+    invoiceId: {
+      type: "string",
+      required: true,
+      ref: ["Invoices", "id"],
+    },
+    name: {
+      type: "string",
+      required: true,
+    },
+    quantity: {
+      type: "number",
+      required: true,
+    },
+    unitPrice: {
+      type: "number",
+      required: true,
+    },
+    total: {
+      type: "number",
+      required: true,
+    },
+  },
+  Receipts: {
+    id: {
+      type: "string",
+      required: true,
+    },
+    bookingId: {
+      type: "string",
+      required: false,
+      ref: ["Bookings", "id"],
+      default: null,
+    },
+    stayId: {
+      type: "string",
+      required: false,
+      ref: ["Stays", "id"],
+      default: null,
+    },
+    amount: {
+      type: "number",
+      required: true,
+    },
+    method: {
+      type: "string",
+      required: true,
+    },
+    createdAt: {
+      type: "date",
+      required: true,
+      default: "$now",
+    },
+    actorId: {
+      type: "string",
+      required: true,
+      ref: ["Users", "id"],
+    },
+  },
+  PaymentAllocations: {
+    receiptId: {
+      type: "string",
+      required: true,
+      ref: ["Receipts", "id"],
+    },
+    invoiceId: {
+      type: "string",
+      required: true,
+      ref: ["Invoices", "id"],
+    },
+    amount: {
+      type: "number",
+      required: true,
+    },
+  },
+  Adjustments: {
+    id: {
+      type: "string",
+      required: true,
+    },
+    invoiceId: {
+      type: "string",
+      required: true,
+      ref: ["Invoices", "id"],
+    },
+    amount: {
+      type: "number",
+      required: true,
+    },
+    reason: {
+      type: "string",
+      required: true,
+    },
+    actorId: {
+      type: "string",
+      required: true,
+      ref: ["Users", "id"],
+    },
+    createdAt: {
+      type: "date",
+      required: true,
+      default: "$now",
+    },
+  },
+  Refunds: {
+    id: {
+      type: "string",
+      required: true,
+    },
+    invoiceId: {
+      type: "string",
+      required: true,
+      ref: ["Invoices", "id"],
+    },
+    amount: {
+      type: "number",
+      required: true,
+    },
+    reason: {
+      type: "string",
+      required: true,
+    },
+    actorId: {
+      type: "string",
+      required: true,
+      ref: ["Users", "id"],
+    },
+    createdAt: {
+      type: "date",
+      required: true,
+      default: "$now",
+    },
+  },
+  CleanerProfiles: {
+    userId: {
+      type: "string",
+      required: true,
+      ref: ["Users", "id"],
+    },
+    zone: {
+      type: "string",
+      required: true,
+    },
+    skills: {
+      type: "string",
+      required: true,
+    },
+    accepting: {
+      type: "bool",
+      required: true,
+      default: false,
+    },
+    ratingSum: {
+      type: "number",
+      required: true,
+      default: 0,
+    },
+    ratingCount: {
+      type: "number",
+      required: true,
+      default: 0,
+    },
+    lastClosedAt: {
+      type: "date",
+      required: false,
+      default: null,
+    },
+  },
+  CleanerShifts: {
+    id: {
+      type: "string",
+      required: true,
+    },
+    userId: {
+      type: "string",
+      required: true,
+      ref: ["Users", "id"],
+    },
+    startsAt: {
+      type: "date",
+      required: true,
+    },
+    endsAt: {
+      type: "date",
+      required: true,
+    },
+  },
+  HousekeepingTasks: {
+    deskStartedBy: { type: "string", required: false, default: null, ref: ["Users", "id"] },
+    deskStartedAt: { type: "date", required: false, default: null },
+    completedBy: { type: "string", required: false, default: null, ref: ["Users", "id"] },
+    completedAt: { type: "date", required: false, default: null },
+    id: {
+      type: "string",
+      required: true,
+    },
+    roomId: {
+      type: "string",
+      required: true,
+      ref: ["Rooms", "id"],
+    },
+    stayId: {
+      type: "string",
+      required: true,
+      ref: ["Stays", "id"],
+    },
+    serviceId: {
+      type: "string",
+      required: true,
+      ref: ["Services", "id"],
+    },
+    source: {
+      type: "string",
+      required: true,
+    },
+    windowStart: {
+      type: "date",
+      required: true,
+    },
+    windowEnd: {
+      type: "date",
+      required: true,
+    },
+    status: {
+      type: "string",
+      required: true,
+    },
+    checklistJson: {
+      type: "string",
+      required: true,
+    },
+    priceSnapshot: {
+      type: "number",
+      required: true,
+    },
+    entryConsent: {
+      type: "bool",
+      required: true,
+    },
+    notes: {
+      type: "string",
+      required: true,
+      default: "",
+    },
+    cycle: {
+      type: "number",
+      required: true,
+    },
+    dedupeKey: {
+      type: "string",
+      required: true,
+    },
+    version: {
+      type: "number",
+      required: true,
+      default: 1,
+    },
+    offerRound: {
+      type: "number",
+      required: true,
+      default: 0,
+    },
+    escalated: {
+      type: "bool",
+      required: true,
+      default: false,
+    },
+    createdAt: {
+      type: "date",
+      required: true,
+      default: "$now",
+    },
+    nextDispatchAt: {
+      type: "date",
+      required: true,
+      default: "$now",
+    },
+  },
+  CleaningOffers: {
+    id: {
+      type: "string",
+      required: true,
+    },
+    taskId: {
+      type: "string",
+      required: true,
+      ref: ["HousekeepingTasks", "id"],
+    },
+    cleanerId: {
+      type: "string",
+      required: true,
+      ref: ["Users", "id"],
+    },
+    round: {
+      type: "number",
+      required: true,
+    },
+    taskVersion: {
+      type: "number",
+      required: true,
+    },
+    expiresAt: {
+      type: "date",
+      required: true,
+    },
+    status: {
+      type: "string",
+      required: true,
+    },
+    scoreBreakdown: {
+      type: "string",
+      required: true,
+    },
+  },
+  CleaningAssignments: {
+    id: {
+      type: "string",
+      required: true,
+    },
+    taskId: {
+      type: "string",
+      required: true,
+      ref: ["HousekeepingTasks", "id"],
+    },
+    cleanerId: {
+      type: "string",
+      required: true,
+      ref: ["Users", "id"],
+    },
+    offerId: {
+      type: "string",
+      required: false,
+      ref: ["CleaningOffers", "id"],
+      default: null,
+    },
+    assignedAt: {
+      type: "date",
+      required: true,
+      default: "$now",
+    },
+    startedAt: {
+      type: "date",
+      required: false,
+      default: null,
+    },
+    submittedAt: {
+      type: "date",
+      required: false,
+      default: null,
+    },
+    closedAt: {
+      type: "date",
+      required: false,
+      default: null,
+    },
+    status: {
+      type: "string",
+      required: true,
+    },
+    isActive: {
+      type: "bool",
+      required: true,
+      default: true,
+    },
+    checklistJson: {
+      type: "string",
+      required: false,
+      default: null,
+    },
+  },
+  CleaningReviews: {
+    taskId: {
+      type: "string",
+      required: true,
+      ref: ["HousekeepingTasks", "id"],
+    },
+    cleanerId: {
+      type: "string",
+      required: true,
+      ref: ["Users", "id"],
+    },
+    rating: {
+      type: "number",
+      required: true,
+    },
+    comment: {
+      type: "string",
+      required: true,
+      default: "",
+    },
+  },
+  GuestAccessTokens: {
+    id: {
+      type: "string",
+      required: true,
+    },
+    stayId: {
+      type: "string",
+      required: true,
+      ref: ["Stays", "id"],
+    },
+    tokenHash: {
+      type: "string",
+      required: true,
+    },
+    expiresAt: {
+      type: "date",
+      required: true,
+    },
+    revoked: {
+      type: "bool",
+      required: true,
+      default: false,
+    },
+  },
+  Notifications: {
+    id: {
+      type: "string",
+      required: true,
+    },
+    userId: {
+      type: "string",
+      required: true,
+      ref: ["Users", "id"],
+    },
+    title: {
+      type: "string",
+      required: true,
+    },
+    body: {
+      type: "string",
+      required: true,
+    },
+    taskId: {
+      type: "string",
+      required: false,
+      ref: ["HousekeepingTasks", "id"],
+      default: null,
+    },
+    isRead: {
+      type: "bool",
+      required: true,
+      default: false,
+    },
+    eventKey: {
+      type: "string",
+      required: true,
+    },
+    createdAt: {
+      type: "date",
+      required: true,
+      default: "$now",
+    },
+  },
+  DeviceTokens: {
+    token: {
+      type: "string",
+      required: true,
+    },
+    userId: {
+      type: "string",
+      required: true,
+      ref: ["Users", "id"],
+    },
+  },
+  OutboxEvents: {
+    id: {
+      type: "string",
+      required: true,
+    },
+    eventKey: {
+      type: "string",
+      required: true,
+    },
+    userId: {
+      type: "string",
+      required: true,
+      ref: ["Users", "id"],
+    },
+    payloadJson: {
+      type: "string",
+      required: true,
+    },
+    status: {
+      type: "string",
+      required: true,
+      default: "PENDING",
+    },
+    attempts: {
+      type: "number",
+      required: true,
+      default: 0,
+    },
+    nextAttemptAt: {
+      type: "date",
+      required: true,
+      default: "$now",
+    },
+    lastError: {
+      type: "string",
+      required: false,
+      default: null,
+    },
+    createdAt: {
+      type: "date",
+      required: true,
+      default: "$now",
+    },
+  },
+  Maintenance: {
+    id: {
+      type: "string",
+      required: true,
+    },
+    roomId: {
+      type: "string",
+      required: true,
+      ref: ["Rooms", "id"],
+    },
+    startsAt: {
+      type: "date",
+      required: true,
+    },
+    endsAt: {
+      type: "date",
+      required: true,
+    },
+    reason: {
+      type: "string",
+      required: true,
+    },
+    resolvedAt: {
+      type: "date",
+      required: false,
+      default: null,
+    },
+  },
+  AuditLogs: {
+    id: {
+      type: "string",
+      required: true,
+    },
+    actorId: {
+      type: "string",
+      required: false,
+      ref: ["Users", "id"],
+      default: null,
+    },
+    action: {
+      type: "string",
+      required: true,
+    },
+    entityId: {
+      type: "string",
+      required: true,
+    },
+    details: {
+      type: "string",
+      required: true,
+    },
+    createdAt: {
+      type: "date",
+      required: true,
+      default: "$now",
+    },
+  },
+  IdempotencyRecords: {
+    actorKey: {
+      type: "string",
+      required: true,
+    },
+    requestKey: {
+      type: "string",
+      required: true,
+    },
+    requestHash: {
+      type: "string",
+      required: true,
+    },
+    resultJson: {
+      type: "string",
+      required: true,
+    },
+    createdAt: {
+      type: "date",
+      required: true,
+      default: "$now",
+    },
+  },
+  ReceiptReturns: {
+    id: {
+      type: "string",
+      required: true,
+    },
+    receiptId: {
+      type: "string",
+      required: true,
+      ref: ["Receipts", "id"],
+    },
+    amount: {
+      type: "number",
+      required: true,
+    },
+    reason: {
+      type: "string",
+      required: true,
+    },
+    actorId: {
+      type: "string",
+      required: true,
+      ref: ["Users", "id"],
+    },
+    createdAt: {
+      type: "date",
+      required: true,
+      default: "$now",
+    },
+  },
+  Campaigns: {
+    id: {
+      type: "string",
+      required: true,
+    },
+    name: {
+      type: "string",
+      required: true,
+    },
+    channel: {
+      type: "string",
+      required: true,
+    },
+    startsAt: {
+      type: "date",
+      required: true,
+    },
+    endsAt: {
+      type: "date",
+      required: true,
+    },
+    budget: {
+      type: "number",
+      required: true,
+      default: 0,
+    },
+    draft: {
+      type: "string",
+      required: true,
+      default: "",
+    },
+  },
+  Vouchers: {
+    id: {
+      type: "string",
+      required: true,
+    },
+    code: {
+      type: "string",
+      required: true,
+    },
+    discount: {
+      type: "number",
+      required: true,
+    },
+    minTotal: {
+      type: "number",
+      required: true,
+    },
+    startsAt: {
+      type: "date",
+      required: true,
+    },
+    endsAt: {
+      type: "date",
+      required: true,
+    },
+    maxUses: {
+      type: "number",
+      required: true,
+    },
+    perCustomer: {
+      type: "number",
+      required: true,
+    },
+    enabled: {
+      type: "bool",
+      required: true,
+      default: true,
+    },
+  },
+  VoucherRedemptions: {
+    id: {
+      type: "string",
+      required: true,
+    },
+    voucherId: {
+      type: "string",
+      required: true,
+      ref: ["Vouchers", "id"],
+    },
+    customerId: {
+      type: "string",
+      required: true,
+      ref: ["Customers", "id"],
+    },
+    invoiceId: {
+      type: "string",
+      required: true,
+      ref: ["Invoices", "id"],
+    },
+    amount: {
+      type: "number",
+      required: true,
+    },
+    createdAt: {
+      type: "date",
+      required: true,
+      default: "$now",
+    },
+  },
+  AiUsage: {
+    actorKey: {
+      type: "string",
+      required: true,
+    },
+    usageDate: {
+      type: "string",
+      required: true,
+    },
+    calls: {
+      type: "number",
+      required: true,
+    },
+  },
+  Incidents: {
+    id: {
+      type: "string",
+      required: true,
+    },
+    roomId: {
+      type: "string",
+      required: true,
+      ref: ["Rooms", "id"],
+    },
+    reportedBy: {
+      type: "string",
+      required: true,
+      ref: ["Users", "id"],
+    },
+    description: {
+      type: "string",
+      required: true,
+    },
+    status: {
+      type: "string",
+      required: true,
+      default: "OPEN",
+    },
+    resolution: {
+      type: "string",
+      required: false,
+      default: null,
+    },
+    createdAt: {
+      type: "date",
+      required: true,
+      default: "$now",
+    },
+    resolvedAt: {
+      type: "date",
+      required: false,
+      default: null,
+    },
+  },
+};

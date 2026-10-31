@@ -1,10 +1,14 @@
 # Đối chiếu yêu cầu
 
+## Thay đổi backend hiện hành 30/10/2026
+
+User yêu cầu Express + MongoDB thay SQL Server để deploy EC2 2 GB. Đã chuyển data access/native aggregations, schema/index migration, seed và Docker. Transaction cần replica set; property mutex + partial unique indexes bảo vệ race task/cleaner/booking/voucher/finance. Mongo integration 22 kịch bản con pass (TAP24), unit17 pass. API/JS mobile giữ nguyên. Dữ liệu SQL cũ chưa được nhập sang Mongo và không bị xóa. Hướng dẫn: deploy-mongo.md. Các mục SQL dưới đây ghi lại checkpoint cũ, không phải backend hiện hành.
+
 Trạng thái dưới đây phân biệt code, kiểm thử tự động và xác nhận môi trường thật. Không coi các mục đã có code là đã test đầy đủ trên Android.
 
 ## Nền tảng và dữ liệu
 
-- Expo SDK 57 + React Native + JS/JSX: src/app, src/features; không còn source TS template. Router, Paper, Query, Axios, RHF/Zod, SecureStore đã dùng.
+- Expo SDK 57 + React Native + JS/JSX: frontend/src/app, frontend/src/features; không còn source TS template. Router, Paper, Query, Axios, RHF/Zod, SecureStore đã dùng.
 - SQL Server thật: 6 migration trong backend/migrations; migration hash, seed idempotent; PK/FK/index/checks/filtered unique. Migration 001–006 đã áp dụng và integration cuối đạt.
 - Auth/RBAC/khóa tài khoản/refresh: auth.js, app.js, repository.js; đã có API integration cho 3 role + Guest và khóa token cũ.
 - Tiền/check-in/check-out idempotency: controller action + IdempotencyRecords; concurrency/receipt/refund retries đã test trên SQL.

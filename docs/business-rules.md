@@ -1,5 +1,7 @@
 # Quy tắc nghiệp vụ
 
+> Requirement hiện hành đã đổi ngày 31/10/2026. Xem [cập nhật requirement](requirements-update.md) cho hai vai trò, bỏ ca bắt buộc, thuê HOUR/NIGHT, giá nhiều đêm, điều chỉnh hóa đơn và các đơn ăn uống/hỗ trợ riêng. Những mô tả DAY, chỉ Cleaner và ca ở dưới là luồng lịch sử.
+
 ## Lưu trú và giá
 
 Booking CONFIRMED/CANCELLED/CHECKED_IN khác Stay OPEN/CLOSED, vệ sinh CLEAN/DIRTY, bảo trì và thanh toán. Không tự checkout theo giờ dự kiến. Kiểm tra và ghi booking/check-in/checkout trong transaction.

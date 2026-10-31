@@ -1,59 +1,95 @@
 services:
-  sqlserver:
-    image: mcr.microsoft.com/mssql/server:2022-latest
+  mongo:
+    image: mongo:8.0
     restart: unless-stopped
+    mem_limit: 1g
     environment:
-      ACCEPT_EULA: 'Y'
-      MSSQL_PID: Express
-      MSSQL_SA_PASSWORD: ${SQL_PASSWORD:?required}
-      MSSQL_MEMORY_LIMIT_MB: 2048
-    volumes: [sql-data:/var/opt/mssql]
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER:-root}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:?required}
+    entrypoint: [sh, -ec]
+    command:
+      - "if [ ! -s /data/configdb/keyfile ]; then umask 077; openssl rand -base64 756 > /data/configdb/keyfile; fi; chown mongodb:mongodb /data/configdb/keyfile; chmod 400 /data/configdb/keyfile; exec docker-entrypoint.sh mongod --replSet rs0 --keyFile /data/configdb/keyfile --bind_ip_all --wiredTigerCacheSizeGB 0.25"
+    volumes: [mongo-data:/data/db, mongo-config:/data/configdb]
     healthcheck:
-      test: [CMD-SHELL, '/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$$MSSQL_SA_PASSWORD" -C -Q "SELECT 1" -b -o /dev/null']
-      interval: 10s
+      test:
+        [
+          CMD-SHELL,
+          "mongosh --quiet --eval 'db.adminCommand({ping:1})' >/dev/null",
+        ]
+      interval: 5s
       timeout: 5s
-      retries: 30
+      retries: 40
+  mongo-init:
+    image: mongo:8.0
+    restart: "no"
+    environment:
+      MONGO_ROOT_USER: ${MONGO_ROOT_USER:-root}
+      MONGO_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:?required}
+    depends_on:
+      mongo: { condition: service_healthy }
+    entrypoint: [mongosh, --host, mongo:27017, --quiet, --eval]
+    command:
+      - 'db.getSiblingDB("admin").auth(process.env.MONGO_ROOT_USER,process.env.MONGO_ROOT_PASSWORD); try {rs.status()} catch(e){if(e.code===94) rs.initiate({_id:"rs0",members:[{_id:0,host:"mongo:27017"}]}); else throw e;} for(let i=0;i<90;i++){if(db.hello().isWritablePrimary) quit(0);sleep(1000);} quit(1);'
   migrate:
     build:
       context: ..
-      args:
-        PUBLIC_API_URL: https://${DOMAIN:?required}
-    env_file: .env
+      args: { PUBLIC_API_URL: "https://${DOMAIN:?required}" }
     environment:
-      SQL_SERVER: sqlserver
-      SQL_PORT: 1433
-      SQL_USER: sa
-      SQL_ENCRYPT: 'false'
-      SQL_TRUST_CERT: 'true'
-    command: [sh, -c, 'node scripts/migrate.js && node scripts/provision-runtime.js && node scripts/bootstrap-admin.js']
+      MONGO_URI: ${MONGO_ADMIN_URI:?required}
+      MONGO_ADMIN_URI: ${MONGO_ADMIN_URI:?required}
+      MONGO_DATABASE: ${MONGO_DATABASE:-StayFlow}
+      MONGO_APP_USER: stayflow_app
+      MONGO_APP_PASSWORD: ${MONGO_APP_PASSWORD:?required}
+      BOOTSTRAP_ADMIN_USERNAME: ${BOOTSTRAP_ADMIN_USERNAME:-admin}
+      BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:?required}
+      DEMO_SEED_PASSWORD: ${DEMO_SEED_PASSWORD:-}
+    command:
+      [
+        sh,
+        -c,
+        "node scripts/migrate.js && node scripts/provision-runtime.js && node scripts/bootstrap-admin.js",
+      ]
     depends_on:
-      sqlserver: {condition: service_healthy}
+      mongo-init: { condition: service_completed_successfully }
   api:
     build:
       context: ..
-      args:
-        PUBLIC_API_URL: https://${DOMAIN:?required}
+      args: { PUBLIC_API_URL: "https://${DOMAIN:?required}" }
     restart: unless-stopped
-    env_file: .env
+    mem_limit: 512m
     environment:
-      SQL_SERVER: sqlserver
-      SQL_PORT: 1433
-      SQL_USER: stayflow_app
-      SQL_PASSWORD: ${APP_SQL_PASSWORD:?required}
-      SQL_ENCRYPT: 'false'
-      SQL_TRUST_CERT: 'true'
+      MONGO_URI: ${MONGO_URI:?required}
+      MONGO_DATABASE: ${MONGO_DATABASE:-StayFlow}
+      MONGO_POOL_SIZE: 5
+      JWT_SECRET: ${JWT_SECRET:?required}
+      TRUST_PROXY: "1"
       CORS_ORIGINS: https://${DOMAIN}
       GUEST_WEB_URL: https://${DOMAIN}/guest
+      PUSH_ENABLED: ${PUSH_ENABLED:-false}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4.1-mini}
+      AI_PROVIDER: ${AI_PROVIDER:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.5-flash-lite}
+      AI_DAILY_LIMIT: ${AI_DAILY_LIMIT:-30}
+      NODE_OPTIONS: --max-old-space-size=256
     depends_on:
-      migrate: {condition: service_completed_successfully}
+      migrate: { condition: service_completed_successfully }
   caddy:
     image: caddy:2-alpine
     restart: unless-stopped
-    environment: {DOMAIN: '${DOMAIN:?required}'}
-    ports: ['80:80', '443:443']
-    volumes: ['./Caddyfile:/etc/caddy/Caddyfile:ro', 'caddy-data:/data', 'caddy-config:/config']
+    mem_limit: 96m
+    environment: { DOMAIN: "${DOMAIN:?required}" }
+    ports: ["80:80", "443:443"]
+    volumes:
+      [
+        "./Caddyfile:/etc/caddy/Caddyfile:ro",
+        "caddy-data:/data",
+        "caddy-config:/config",
+      ]
     depends_on: [api]
 volumes:
-  sql-data:
+  mongo-data:
+  mongo-config:
   caddy-data:
   caddy-config:
