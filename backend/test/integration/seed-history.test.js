@@ -82,7 +82,8 @@ test("60-day history preserves existing data, resumes atomically and feeds forec
     const login = await request(app).post("/api/auth/login").send({ username: "admin", password: env.DEMO_SEED_PASSWORD });
     assert.equal(login.status, 200);
     const get = resource => request(app).get("/api/" + resource).set("Authorization", "Bearer " + login.body.token);
-    assert.equal((await get("forecast?days=30")).body.simulated, true);
+    assert.equal(Object.hasOwn((await get("forecast?days=30")).body, "simulated"), false);
+    assert.equal(Object.hasOwn((await get("dashboard")).body, "containsDemoData"), false);
     assert.equal((await get("forecast?days=10")).status, 400);
     process.env.AI_PROVIDER = "gemini";
     process.env.GEMINI_API_KEY = "history-test-only";
@@ -96,7 +97,9 @@ test("60-day history preserves existing data, resumes atomically and feeds forec
     assert.equal(answer.status, 200, JSON.stringify(answer.body));
     assert.equal(answer.body.tool, "forecast");
     assert.equal(answer.body.data.days.length, 30);
-    assert.match(answer.body.message, /dữ liệu demo/);
+    assert.equal(Object.hasOwn(answer.body.data, "simulated"), false);
+    assert.doesNotMatch(answer.body.message, /dữ liệu demo|trải nghiệm tính năng/i);
+    assert.match(answer.body.message, /dữ liệu lưu trú và hóa đơn trong hệ thống/);
     assert.equal(await ctx.db.collection("Invoices").countDocuments(), beforeRetry);
   } finally {
     globalThis.fetch = originalFetch;

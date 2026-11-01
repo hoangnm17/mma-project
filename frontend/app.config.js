@@ -35,6 +35,7 @@ module.exports = () => {
           ),
       ),
       "expo-notifications",
+      ["expo-image-picker", { photosPermission: "Cho phép StayFlow chọn ảnh người bón thức ăn.", cameraPermission: false, microphonePermission: false }],
       [
         "expo-build-properties",
         {

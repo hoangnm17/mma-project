@@ -21,6 +21,7 @@ import {
   vnTime,
 } from "../../core/ui";
 import CustomerPicker, { customerBody, customerReady } from "../customers/CustomerPicker";
+import { StayDetail } from "../stays/Stays";
 export default function Rooms() {
   const { width, fontScale } = useWindowDimensions();
   const twoColumns = width >= layout.tablet && fontScale <= 1.3;
@@ -30,6 +31,7 @@ export default function Rooms() {
     [typeId, setTypeId] = useState(""),
     [page, setPage] = usePage(),
     [room, setRoom] = useState(null),
+    [checkoutStay, setCheckoutStay] = useState(null),
     [form, setForm] = useState(null);
   const q = useResource("rooms", { search, page, status: filter, typeId });
   const types = useResource("roomTypes");
@@ -39,7 +41,7 @@ export default function Rooms() {
   return (
     <Screen
       title="Phòng"
-      subtitle="Theo dõi trạng thái và nhận phòng trực tiếp."
+      subtitle="Nhận phòng, quản lý dịch vụ và trả phòng."
       onRefresh={q.refetch}
       refreshing={q.isRefetching}
     >
@@ -190,6 +192,9 @@ export default function Rooms() {
                     <RoomAction icon="history" onPress={() => setRoom(r)}>
                       Chi tiết và lịch sử
                     </RoomAction>
+                    {!!r.stayId && <RoomAction primary icon="logout" onPress={() => setCheckoutStay({ id: r.stayId, status: "OPEN", roomNumber: r.number })}>
+                      Dịch vụ & trả phòng
+                    </RoomAction>}
                   </Panel>
                 ))}
             </View>
@@ -197,6 +202,9 @@ export default function Rooms() {
         )}
       </Dataset>
       <Pager page={page} setPage={setPage} count={q.data?.length || 0} />
+      <Dialog title={`Phòng ${checkoutStay?.roomNumber || ""} · Trả phòng`} visible={!!checkoutStay} onDismiss={() => setCheckoutStay(null)}>
+        {checkoutStay && <StayDetail key={checkoutStay.id} stay={checkoutStay} onClose={() => setCheckoutStay(null)} />}
+      </Dialog>
       <Dialog
         title={"Phòng " + (room?.number || "")}
         visible={!!room}

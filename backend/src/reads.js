@@ -83,12 +83,18 @@ export async function readResource(actor, resource, params = {}) {
     "Không có quyền xem dữ liệu",
     403,
   );
-  if (["food-items", "food-orders", "special-services", "special-requests"].includes(resource))
+  if (["food-items", "food-orders", "special-services", "special-requests", "meal-assistants"].includes(resource))
     return readOrdersResource(db, actor, resource, { ...params, page });
   if (resource === "quote") {
     const stayId = z.string().uuid().parse(params.stayId);
     const result = await quote(db, stayId);
-    if (!(await canAccessSpecial(db, actor))) {
+    const special = await canAccessSpecial(db, actor);
+    const orders = await find(db, "Orders", { stayId }, { sort: { requestedAt: -1 } });
+    result.pendingOrderCount = orders.filter(order => ["PENDING", "PREPARING"].includes(order.status)).length;
+    result.orders = orders.map(order => order.kind === "SPECIAL" && !special
+      ? { kind: "SPECIAL", status: order.status, total: order.total, restricted: true }
+      : { ...order, items: JSON.parse(order.itemsJson) });
+    if (!special) {
       result.items = result.items.map((item) => item.category === "SPECIAL"
         ? { id: item.id, category: "SPECIAL", name: "Dịch vụ riêng", quantity: 1,
             unitPrice: item.unitPrice * item.quantity } : item);
@@ -165,21 +171,24 @@ export async function readResource(actor, resource, params = {}) {
       const { revenue: _revenue, collected: _collected, debt: _debt, ...operations } = base;
       return operations;
     }
-    return { ...base, ...await dashboardReport(db, params) };
+    const { containsDemoData: _provenance, ...report } = await dashboardReport(db, params);
+    return { ...base, ...report };
   }
   if (resource === "incidents") return query(db, "incidents", args);
   if (resource === "booking-receipts") {
     const bookingId = z.string().uuid().parse(params.bookingId);
     return query(db, "bookingReceipts", { bookingId });
   }
-  if (resource === "forecast")
-    return forecast(
+  if (resource === "forecast") {
+    const { simulated: _provenance, ...result } = await forecast(
       db,
       z.coerce
         .number()
         .refine((n) => [7, 30].includes(n))
         .parse(params.days || 7),
     );
+    return result;
+  }
   if (resource === "availability") {
     const start = new Date(
         z.string().datetime({ offset: true }).parse(params.start),

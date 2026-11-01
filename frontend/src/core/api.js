@@ -24,7 +24,8 @@ export async function read(resource, params) {
 }
 export function errorText(error) {
   return (
-    error.response?.data?.error ||
+    (error.response?.data?.fields?.length ? `${error.response.data.error || "Dữ liệu chưa hợp lệ"}: ${error.response.data.fields.map(field => `${field.path}: ${field.message}`).join("; ")}` : error.response?.data?.error) ||
+    (!error.response && !error.config && error.message ? error.message : null) ||
     (error.code === "ECONNABORTED"
       ? "Kết nối quá hạn. Hãy tải lại để kiểm tra kết quả trước khi thử lại."
       : "Không kết nối được máy chủ. Kiểm tra mạng và địa chỉ API.")

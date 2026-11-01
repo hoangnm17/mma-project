@@ -24,7 +24,6 @@ function ForecastResult({ data }) {
     peakDate: [...data.days].sort((a, b) => b.demand - a.demand)[0]?.date,
   };
   return <>
-    {data.simulated && <View style={s.notice}><Icon name="flask-outline" color={palette.warning} /><Text style={s.noticeText}>Có sử dụng dữ liệu demo. Kết quả dùng để trải nghiệm tính năng.</Text></View>}
     <View style={[s.metrics, wide && s.metricsWide]}>
       <View style={s.primaryMetric}>
         <Text style={s.onDarkLabel}>DOANH THU ƯỚC TÍNH · {data.days.length} NGÀY</Text>
@@ -77,7 +76,7 @@ export default function Assistant() {
   const suggestions = [
     { label: "Tuần tới có đông khách?", text: "Dự báo nhu cầu nhận phòng 7 ngày tới và ngày cao điểm là ngày nào?", icon: "calendar-week" },
     { label: "Lên kế hoạch tháng tới", text: "Dự báo nhu cầu nhận phòng 30 ngày tới để chuẩn bị nhân sự.", icon: "calendar-month-outline" },
-    ...(admin ? [{ label: "Doanh thu 7 ngày tới", text: "Dự báo doanh thu và nhu cầu 7 ngày tới, kèm sai số và lưu ý về dữ liệu demo nếu có.", icon: "chart-timeline-variant" },
+    ...(admin ? [{ label: "Doanh thu 7 ngày tới", text: "Dự báo doanh thu và nhu cầu 7 ngày tới từ dữ liệu đang lưu trong hệ thống, kèm sai số dự báo.", icon: "chart-timeline-variant" },
       { label: "Doanh thu và công nợ", text: "Doanh thu, thực thu và công nợ hiện tại là bao nhiêu?", icon: "wallet-outline" }] : []),
     { label: "Tình hình phòng hôm nay", text: "Hiện có bao nhiêu phòng đang có khách, sắp nhận và sắp trả hôm nay?", icon: "bed-outline" },
   ];

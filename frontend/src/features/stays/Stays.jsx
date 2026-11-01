@@ -18,7 +18,7 @@ import {
   usePage,
   Pager,
 } from "../../core/ui";
-function StayDetail({ stay, onClose }) {
+export function StayDetail({ stay, onClose }) {
   const [itemId, setItemId] = useState(null);
   const [section, setSection] = useState("checkout");
   const [adjustPrice, setAdjustPrice] = useState(false);
@@ -51,7 +51,7 @@ function StayDetail({ stay, onClose }) {
                 {vnMoney(q.room.surcharge)}
               </Text>
               <Text>Dịch vụ: {vnMoney(q.services)}</Text>
-              {(section === "service" || q.stay.status === "CLOSED") && q.items.map((i) => (
+              {q.items.map((i) => (
                 <Panel key={i.id}>
                   <Text>
                     {i.name} × {i.quantity}: {vnMoney(i.quantity * i.unitPrice)}
@@ -200,6 +200,22 @@ function StayDetail({ stay, onClose }) {
                   <Text>Link mới thay thế link cũ.</Text>
                 </Panel>}
                 {section === "checkout" && <Panel title="Trả phòng">
+                  <Panel title="Dịch vụ phòng đã đặt">
+                    {!q.orders?.length && <Text>Phòng chưa đặt đơn ăn uống hoặc hỗ trợ nào.</Text>}
+                    {(q.orders || []).map((order, index) => <Panel key={order.id || `restricted-${index}`}>
+                      <Text variant="titleMedium">{order.kind === "FOOD" ? "Ăn uống" : order.restricted ? "Dịch vụ riêng" : order.specialPurpose === "MEAL_ASSISTANCE" ? "Đút thức ăn" : "Hỗ trợ riêng"}</Text>
+                      <Text>{({ PENDING: "Chờ xử lý", PREPARING: "Đang thực hiện", COMPLETED: "Đã hoàn thành · Đã ghi phí", CANCELLED: "Đã hủy · Không tính phí" })[order.status]}</Text>
+                      {(order.items || []).map(item => <Text key={item.serviceId}>{item.name} × {item.quantity} · {vnMoney(item.unitPrice * item.quantity)}</Text>)}
+                      {!!order.mealAssistantName && <Text>Người bón: {order.mealAssistantName}</Text>}
+                      {!!order.notes && <Text>Ghi chú: {order.notes}</Text>}
+                      <Text>Tổng đơn: {vnMoney(order.total)}</Text>
+                      {order.restricted && ["PENDING", "PREPARING"].includes(order.status) && <Text>Cần nhân viên có quyền dịch vụ riêng xử lý đơn này trước khi trả phòng.</Text>}
+                      {!order.restricted && order.status === "PENDING" && <ActionButton name={order.kind === "FOOD" ? "food-order-status" : "special-request-status"} body={{ id: order.id, status: "PREPARING" }}>Bắt đầu thực hiện</ActionButton>}
+                      {!order.restricted && order.status === "PREPARING" && <ActionButton name={order.kind === "FOOD" ? "food-order-status" : "special-request-status"} body={{ id: order.id, status: "COMPLETED" }}>Hoàn thành & ghi phí</ActionButton>}
+                      {!order.restricted && ["PENDING", "PREPARING"].includes(order.status) && <ActionButton mode="outlined" name={order.kind === "FOOD" ? "food-order-status" : "special-request-status"} body={{ id: order.id, status: "CANCELLED" }}>Hủy yêu cầu</ActionButton>}
+                    </Panel>)}
+                    {q.pendingOrderCount > 0 && <Text>Còn {q.pendingOrderCount} đơn chưa xử lý xong. Hoàn thành hoặc hủy các đơn trước khi chốt trả phòng.</Text>}
+                  </Panel>
                   <Field
                     label="Mã giảm giá (tùy chọn)"
                     value={voucherCode}
@@ -261,6 +277,7 @@ function StayDetail({ stay, onClose }) {
                     }}
                     onSuccess={onClose}
                     disabled={
+                      q.pendingOrderCount > 0 || quote.isFetching ||
                       (finalTotal !== "" && (!Number.isSafeInteger(Number(finalTotal)) || Number(finalTotal) < 0)) ||
                       (adjustPrice && (finalTotal === "" || adjustmentReason.trim().length < 5)) ||
                       (allowDebt && reason.trim().length < 5) ||

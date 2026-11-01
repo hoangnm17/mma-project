@@ -107,7 +107,7 @@ export async function managerAssistant(actor, question) {
     const money = value => Number(value).toLocaleString("vi-VN") + " ₫";
     return { tool: "forecast", data, asOf: new Date().toISOString(),
       message: data.available
-        ? `${data.simulated ? "Dự báo có sử dụng dữ liệu demo. " : ""}${data.days.length} ngày tới: doanh thu ước tính ${money(data.summary.totalRevenue)}, khoảng ${data.summary.totalDemand} lượt nhận phòng. Ngày có nhu cầu cao nhất: ${data.summary.peakDate}. Sai số doanh thu trung bình khi kiểm thử: ${money(data.backtest.revenueMAE)}/ngày. Đây là dự báo thống kê từ lịch sử, không phải cam kết; xem khoảng tham khảo ở phần dự báo.`
+        ? `${data.days.length} ngày tới: doanh thu ước tính ${money(data.summary.totalRevenue)}, khoảng ${data.summary.totalDemand} lượt nhận phòng. Ngày có nhu cầu cao nhất: ${data.summary.peakDate}. Sai số doanh thu trung bình khi kiểm thử: ${money(data.backtest.revenueMAE)}/ngày. Dự báo được tính từ dữ liệu lưu trú và hóa đơn trong hệ thống; xem khoảng tham khảo ở phần dự báo.`
         : data.message };
   }
   return {

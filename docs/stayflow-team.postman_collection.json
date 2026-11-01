@@ -1,8 +1,8 @@
 {
   "info": {
-    "name": "StayFlow — BE × FE mobile — source 2026-10-31",
+    "name": "StayFlow — BE × FE mobile — source 2026-11-01",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-    "description": "90 request templates đối chiếu source local, không có secret. Đọc docs/team-handoff.md và api-reference-current.md. Đặt baseUrl, tài khoản và ID từ DB test; Send từng request theo luồng, không tự tạo dữ liệu phụ thuộc. idempotencyKey để trống: tự đặt key mới mỗi ý định, giữ key khi retry nguyên body. startAt/endAt cần mốc tương lai có offset. Mặc định staff token; guest-stay/review dùng guestToken. Login/refresh tự lưu token khi 200."
+    "description": "93 request templates đối chiếu source local, không có secret. Đọc docs/team-handoff.md và api-reference-current.md. Đặt baseUrl, tài khoản và ID từ DB test; Send từng request theo luồng, không tự tạo dữ liệu phụ thuộc. idempotencyKey để trống: tự đặt key mới mỗi ý định, giữ key khi retry nguyên body. startAt/endAt cần mốc tương lai có offset. Mặc định staff token; guest-stay/review dùng guestToken. Login/refresh tự lưu token khi 200."
   },
   "variable": [
     {
@@ -152,6 +152,11 @@
     },
     {
       "key": "expoPushToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "mealAssistantId",
       "value": "",
       "type": "string"
     }
@@ -1116,7 +1121,7 @@
                 }
               ]
             },
-            "description": "Quyền: Admin / Receptionist\nInput: stayId:UUID.\nOutput: {stay,invoice,room,items,services,total,paid,refunded,adjustments,balance,credit}.\ninvoice=null trước chốt; room là breakdown. SPECIAL bị ẩn tên/orderId cho người không có quyền. balance=total-paid+refunded; credit=max(0,paid-refunded-total).\n"
+            "description": "Quyền: Admin / Receptionist\nInput: stayId:UUID.\nOutput: {stay,invoice,room,items,services,total,paid,refunded,adjustments,balance,credit}.\ninvoice=null trước chốt; room là breakdown. SPECIAL bị ẩn tên/orderId cho người không có quyền. balance=total-paid+refunded; credit=max(0,paid-refunded-total).\n\nThêm orders (toàn bộ đơn mọi trạng thái, không phân trang) và pendingOrderCount (PENDING/PREPARING). SPECIAL thiếu quyền chỉ trả kind/status/total/restricted:true, không ID/tên/người bón/ghi chú. FE xử lý đơn ngay trong màn hình trả phòng rồi GET lại quote trước checkout."
           }
         },
         {
@@ -2294,10 +2299,10 @@
               ],
               "query": []
             },
-            "description": "Quyền: Admin / Receptionist có canAccessSpecialServices\nInput: purpose:MEAL_ASSISTANCE|PRIVATE_SUPPORT; stayId,items,notes như food-order.\nOutput: {id:orderId,status:\"PENDING\",total}.\nChỉ dùng catalogue SPECIAL đúng purpose; không gọi điện/gửi tin ra bên ngoài.\n",
+            "description": "Quyền: Admin / Receptionist có canAccessSpecialServices\nInput: purpose:MEAL_ASSISTANCE|PRIVATE_SUPPORT; stayId,items,notes như food-order.\nOutput: {id:orderId,status:\"PENDING\",total}.\nChỉ dùng catalogue SPECIAL đúng purpose; không gọi điện/gửi tin ra bên ngoài.\n\nmealAssistantId tùy chọn chỉ cho MEAL_ASSISTANCE. Bỏ field nếu chỉ đặt dịch vụ. AVAILABLE -> SERVING ngay khi tạo PENDING; COMPLETED/CANCELLED trả AVAILABLE. Cạnh tranh đặt người chỉ một request thành công; còn lại 409. Orders trả mealAssistantId và snapshot mealAssistantName.",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"purpose\": \"MEAL_ASSISTANCE\",\n  \"stayId\": \"{{stayId}}\",\n  \"items\": [\n    {\n      \"serviceId\": \"{{specialServiceId}}\",\n      \"quantity\": 1\n    }\n  ],\n  \"notes\": \"\"\n}",
+              "raw": "{\n  \"purpose\": \"MEAL_ASSISTANCE\",\n  \"stayId\": \"{{stayId}}\",\n  \"items\": [\n    {\n      \"serviceId\": \"{{specialServiceId}}\",\n      \"quantity\": 1\n    }\n  ],\n  \"notes\": \"\",\n  \"mealAssistantId\": \"{{mealAssistantId}}\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -2396,6 +2401,142 @@
             "body": {
               "mode": "raw",
               "raw": "{\n  \"id\": \"{{orderId}}\",\n  \"status\": \"PREPARING\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "GET /api/meal-assistants",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/meal-assistants?status=AVAILABLE&page=1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "meal-assistants"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "AVAILABLE"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                }
+              ]
+            },
+            "description": "Admin hoặc Receptionist có canAccessSpecialServices. Mảng 30 hồ sơ/trang; status AVAILABLE hoặc SERVING, bỏ status để lấy tất cả. photo là data URI JPEG/PNG hoặc null. Không trả hồ sơ đã xóa."
+          }
+        },
+        {
+          "name": "POST /api/actions/meal-assistant",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{idempotencyKey}}",
+                "description": "Điền key mới mỗi ý định; giữ nguyên khi retry cùng body."
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/actions/meal-assistant",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "actions",
+                "meal-assistant"
+              ],
+              "query": []
+            },
+            "description": "Chỉ Admin. Thêm id={{mealAssistantId}} để sửa. Số nguyên: birthYear 1900..năm hiện tại; height 50..250 cm; bust/waist/hips 20..250 cm; weight 10..300 kg. photo tùy chọn data URI JPEG/PNG <=500.000 byte giải mã; null gỡ ảnh, bỏ field giữ ảnh cũ. 200 {id}; 400/403/404/409/413. Không thể chuyển AVAILABLE khi có đơn đang mở.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Người bón thức ăn\",\n  \"birthYear\": 2000,\n  \"height\": 165,\n  \"bust\": 85,\n  \"waist\": 65,\n  \"hips\": 90,\n  \"weight\": 55,\n  \"status\": \"AVAILABLE\",\n  \"photo\": null\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST /api/actions/meal-assistant-delete",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{idempotencyKey}}",
+                "description": "Điền key mới mỗi ý định; giữ nguyên khi retry cùng body."
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/actions/meal-assistant-delete",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "actions",
+                "meal-assistant-delete"
+              ],
+              "query": []
+            },
+            "description": "Chỉ Admin. Xóa mềm; giữ lịch sử đơn và snapshot tên. 200 {id}; 409 nếu đang SERVING hoặc có đơn PENDING/PREPARING; 404 nếu đã xóa/không tồn tại.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"{{mealAssistantId}}\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -3168,7 +3309,7 @@
               ],
               "query": []
             },
-            "description": "Quyền: Admin / Receptionist\nInput: from?,to?:ISO phải có cùng nhau và to>from; chỉ Admin được truyền range.\nOutput: Lễ tân: {roomCounts,occupied,pending,verifying,arrivals,departures}; Admin thêm revenue,collected,debt,unpaidInvoices,report.\nreport có from,to,bySource:{ROOM,SERVICE,FOOD,SPECIAL},invoiceCounts:{UNPAID,PARTIAL,PAID},arrivals,departures,stays,averageStayHours,usedRooms,occupancyRate. Không có range thì tài chính tổng lịch sử, occupancy dùng hôm nay.\ncontainsDemoData:boolean: hóa đơn trong khoảng chọn có chứa lịch sử demo.\n"
+            "description": "Quyền: Admin / Receptionist\nInput: from?,to?:ISO phải có cùng nhau và to>from; chỉ Admin được truyền range.\nOutput: Lễ tân: {roomCounts,occupied,pending,verifying,arrivals,departures}; Admin thêm revenue,collected,debt,unpaidInvoices,report.\nreport có from,to,bySource:{ROOM,SERVICE,FOOD,SPECIAL},invoiceCounts:{UNPAID,PARTIAL,PAID},arrivals,departures,stays,averageStayHours,usedRooms,occupancyRate. Không có range thì tài chính tổng lịch sử, occupancy dùng hôm nay.\nAPI công khai không trả containsDemoData; số liệu lấy từ dữ liệu lưu trong hệ thống.\n"
           }
         },
         {
@@ -3231,7 +3372,7 @@
                 }
               ]
             },
-            "description": "Quyền: Admin / Receptionist\nInput: days?:7|30, mặc định 7.\nOutput: available, model=weekday-trend-v2, simulated:boolean, historyDays,lastObservedDate,intervalMethod,summary:{totalRevenue,totalDemand,averageDailyRevenue,revenueChangePercent,demandChangePercent,peakDate}, backtest:{days,revenueMAE,demandMAE}, days:[{date,revenue,demand,revenueRange:{low,high},demandRange:{low,high}}]. Thiếu 56 ngày: {available:false,message,days:[]}.\nHồi quy theo thứ và xu hướng có giới hạn; không gọi LLM. Khoảng là tham khảo, không phải xác suất bảo đảm. simulated=true khi có lịch sử demo. Xem docs/release-1.0.2.md.\n"
+            "description": "Quyền: Admin / Receptionist\nInput: days?:7|30, mặc định 7.\nOutput: available, model=weekday-trend-v2, historyDays,lastObservedDate,intervalMethod,summary:{totalRevenue,totalDemand,averageDailyRevenue,revenueChangePercent,demandChangePercent,peakDate}, backtest:{days,revenueMAE,demandMAE}, days:[{date,revenue,demand,revenueRange:{low,high},demandRange:{low,high}}]. Thiếu 56 ngày: {available:false,message,days:[]}.\nHồi quy theo thứ và xu hướng có giới hạn; không gọi LLM. Khoảng là tham khảo, không phải xác suất bảo đảm. API công khai và AI không trả nhãn simulated; số liệu tính từ DB hiện có.\n"
           }
         },
         {

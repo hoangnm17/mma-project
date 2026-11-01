@@ -45,6 +45,7 @@ export function createApp() {
       contentSecurityPolicy: {
         directives: {
           "script-src": ["'self'", ...scriptHashes],
+          "img-src": ["'self'", "data:", "blob:"],
           "upgrade-insecure-requests":
             process.env.NODE_ENV === "production" ? [] : null,
           "connect-src": [
@@ -57,6 +58,7 @@ export function createApp() {
     }),
   );
   app.use(cors({ origin: config.origins }));
+  app.use("/api/actions/meal-assistant", express.json({ limit: "1mb" }));
   app.use(express.json({ limit: "32kb" }));
   app.use(
     "/api",
@@ -262,6 +264,8 @@ export function createApp() {
   );
   app.use((error, req, res, next) => {
     if (res.headersSent) return next(error);
+    if (error.type === "entity.too.large")
+      return res.status(413).json({ error: "Dữ liệu quá lớn. Hãy chọn ảnh nhỏ hơn 500 KB." });
     if (error instanceof z.ZodError)
       return res.status(400).json({
         error: "Dữ liệu chưa hợp lệ",
@@ -282,4 +286,4 @@ export function createApp() {
   });
   return app;
 }
-const actionNeedsSpecial = (action) => action.startsWith("special-");
+const actionNeedsSpecial = (action) => action.startsWith("special-") || action.startsWith("meal-assistant");

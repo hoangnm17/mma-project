@@ -1,6 +1,22 @@
 // Snapshots keep catalogue changes from altering an order already accepted.
 export const orderDefinitions = {
+  MealAssistants: {
+    id: { type: "string", required: true },
+    name: { type: "string", required: true },
+    birthYear: { type: "number", required: true },
+    height: { type: "number", required: true },
+    bust: { type: "number", required: true },
+    waist: { type: "number", required: true },
+    hips: { type: "number", required: true },
+    weight: { type: "number", required: true },
+    photo: { type: "string", required: false, default: null },
+    status: { type: "string", required: true, default: "AVAILABLE" },
+    deleted: { type: "bool", required: true, default: false },
+    updatedAt: { type: "date", required: true, default: "$now" },
+  },
   Orders: {
+    mealAssistantId: { type: "string", required: false, default: null, ref: ["MealAssistants", "id"] },
+    mealAssistantName: { type: "string", required: false, default: null },
     id: { type: "string", required: true },
     kind: { type: "string", required: true },
     specialPurpose: { type: "string", required: false, default: null },

@@ -7,6 +7,7 @@ import { SessionProvider, queryClient } from "../core/session";
 import NotificationsBridge from "../core/NotificationsBridge";
 import { Icon } from "../core/visuals";
 import { theme } from "../core/theme";
+import FeedbackProvider from "../core/Feedback";
 const paperIcons = ({ name, color, size }) => (
   <Icon name={name} color={color} size={size} />
 );
@@ -17,8 +18,10 @@ export default function Layout() {
         {/* Paper's Portal.Host must stay inside the session for dialog content. */}
         <SessionProvider>
           <PaperProvider theme={theme} settings={{ icon: paperIcons }}>
-            <NotificationsBridge />
-            <Stack screenOptions={{ headerShown: false }} />
+            <FeedbackProvider>
+              <NotificationsBridge />
+              <Stack screenOptions={{ headerShown: false }} />
+            </FeedbackProvider>
           </PaperProvider>
         </SessionProvider>
       </QueryClientProvider>

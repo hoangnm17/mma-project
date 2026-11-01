@@ -1,6 +1,6 @@
 # StayFlow — API hiện hành để ghép BE và mobile
 
-Đối chiếu source local ngày **31/10/2026**; **90 tổ hợp method/path**: 35 resource GET, 47 action POST, 3 auth/exchange POST, 3 AI POST, CSV và health. Socket.IO được mô tả riêng bên dưới, không tính là REST endpoint.
+Đối chiếu source local ngày **01/11/2026**; **93 tổ hợp method/path**: 36 resource GET, 49 action POST, 3 auth/exchange POST, 3 AI POST, CSV và health. Socket.IO được mô tả riêng bên dưới, không tính là REST endpoint.
 
 Nguồn: `backend/src/app.js`, `auth.js`, `reads.js`, `mongo-views.js`, `services/{hotel,housekeeping,orders,crm,reporting,forecast,ai,ai-tools}.js`, `mongo-schema.js`. Các route dynamic đã được khai triển thành tên resource/action cụ thể. Không xác nhận server từ xa đã chạy cùng bản source.
 
@@ -301,9 +301,10 @@ Nguồn: `backend/src/app.js`, `auth.js`, `reads.js`, `mongo-views.js`, `service
 
 - **Quyền:** Admin / Receptionist.
 - **Input:** stayId:UUID.
-- **Output 200:** {stay,invoice,room,items,services,total,paid,refunded,adjustments,balance,credit}.
+- **Output 200:** {stay,invoice,room,items,services,total,paid,refunded,adjustments,balance,credit,orders,pendingOrderCount}.
 - **FE sử dụng:** [frontend/src/features/stays/Stays.jsx](../frontend/src/features/stays/Stays.jsx); [frontend/src/features/stays/Invoices.jsx](../frontend/src/features/stays/Invoices.jsx).
 - **Quy tắc:** invoice=null trước chốt; room là breakdown. SPECIAL bị ẩn tên/orderId cho người không có quyền. balance=total-paid+refunded; credit=max(0,paid-refunded-total).
+- `orders` chứa toàn bộ đơn của stay ở mọi trạng thái, không phân trang, gồm items đã parse, mealAssistantId/name khi có đặt người bón. Đơn SPECIAL của người thiếu quyền chỉ trả `{kind,status,total,restricted:true}`; không trả ID, tên, ghi chú hay người bón. `pendingOrderCount` đếm PENDING/PREPARING, kể cả đơn hạn chế quyền. Giao diện Phòng → Dịch vụ & trả phòng dùng chính quote này; xử lý từng đơn rồi tải lại quote trước khi checkout.
 
 ### GET `/api/receipts`
 
@@ -575,6 +576,28 @@ Nguồn: `backend/src/app.js`, `auth.js`, `reads.js`, `mongo-views.js`, `service
 <a id="05"></a>
 
 ## 05. Ăn uống và hỗ trợ riêng
+
+### GET `/api/meal-assistants`
+
+- **Quyền:** Admin hoặc Receptionist có `canAccessSpecialServices`, kiểm tra từ DB.
+- **Input:** `page?` từ 1 (30 dòng), `status?:AVAILABLE|SERVING`. Bỏ status để lấy tất cả; không trả hồ sơ đã xóa.
+- **Output 200:** mảng `{id,name,birthYear,height,bust,waist,hips,weight,photo,status,deleted,updatedAt}`. `photo` là data URI JPEG/PNG hoặc null. Chiều cao/số đo tính cm, cân nặng kg, số nguyên.
+
+### POST `/api/actions/meal-assistant`
+
+- **Quyền:** Admin; Bearer và Idempotency-Key như các action khác.
+- **Input:** `id?:UUID`, `name` 2..120 ký tự; `birthYear` 1900..năm hiện tại; `height` 50..250; `bust,waist,hips` 20..250; `weight` 10..300; `status?:AVAILABLE|SERVING` mặc định AVAILABLE; `photo?:string|null`.
+- **Ảnh:** data URI JPEG/PNG base64, tối đa 500.000 byte sau giải mã; null để gỡ, bỏ field giữ ảnh cũ. Chỉ action này có JSON limit 1 MB, các action khác giữ 32 KB. FE chọn ảnh từ thiết bị, thu nhỏ cạnh dài tối đa 640 px và nén JPEG trước khi gửi.
+- **Output 200:** `{id}`. 400 dữ liệu/ảnh sai; 403 thiếu quyền; 404 không tìm thấy; 409 nếu cố đặt AVAILABLE khi còn đơn PENDING/PREPARING; 413 body quá lớn.
+
+### POST `/api/actions/meal-assistant-delete`
+
+- **Quyền:** Admin; body `{id:UUID}`; output 200 `{id}`.
+- **Quy tắc:** xóa mềm, giữ snapshot tên và liên kết trong lịch sử đơn. 409 nếu đang SERVING hoặc có đơn đang mở; 404 hồ sơ không tồn tại/đã xóa.
+
+Đặt người bón: `POST /api/actions/special-request` nhận thêm `mealAssistantId?:UUID`, chỉ với `purpose=MEAL_ASSISTANCE`. Khi có ID, chỉ nhận hồ sơ AVAILABLE, chưa xóa; giữ người và đổi SERVING ngay lúc tạo đơn PENDING trong cùng transaction. Hoàn thành/hủy đơn đổi lại AVAILABLE cùng transaction. Tranh đặt cùng người chỉ một request thành công; request còn lại 409. `mealAssistantName` là snapshot không bị thay đổi khi sửa/xóa hồ sơ. FOOD/PRIVATE_SUPPORT gửi ID này trả 400. Không truyền ID vẫn tạo yêu cầu dịch vụ như trước.
+
+Migration mới: `003_mongo.js` + snapshot bất biến, thêm MealAssistants và unique partial index cho mỗi người chỉ có một đơn PENDING/PREPARING. Chạy migrate trên DB hiện có; không seed/reset DB để nâng cấp.
 
 ### GET `/api/food-items`
 
@@ -973,7 +996,7 @@ Nguồn: `backend/src/app.js`, `auth.js`, `reads.js`, `mongo-views.js`, `service
 - **Input:** from?,to?:ISO phải có cùng nhau và to>from; chỉ Admin được truyền range.
 - **Output 200:** Lễ tân: {roomCounts,occupied,pending,verifying,arrivals,departures}; Admin thêm revenue,collected,debt,unpaidInvoices,report.
 - **FE sử dụng:** [frontend/src/features/reports/Dashboard.jsx](../frontend/src/features/reports/Dashboard.jsx).
-- **Quy tắc:** report có from,to,bySource:{ROOM,SERVICE,FOOD,SPECIAL},invoiceCounts:{UNPAID,PARTIAL,PAID},arrivals,departures,stays,averageStayHours,usedRooms,occupancyRate. `containsDemoData:boolean` ở ngoài report cho biết hóa đơn trong khoảng chọn có lịch sử demo. Không có range thì tài chính tổng lịch sử, occupancy dùng hôm nay.
+- **Quy tắc:** report có from,to,bySource:{ROOM,SERVICE,FOOD,SPECIAL},invoiceCounts:{UNPAID,PARTIAL,PAID},arrivals,departures,stays,averageStayHours,usedRooms,occupancyRate. Không có range thì tài chính tổng lịch sử, occupancy dùng hôm nay. Từ 01/11, API công khai không trả nhãn nguồn nội bộ containsDemoData; số liệu vẫn được tính từ DB hiện có.
 
 ### GET `/api/reports.csv`
 
@@ -987,9 +1010,9 @@ Nguồn: `backend/src/app.js`, `auth.js`, `reads.js`, `mongo-views.js`, `service
 
 - **Quyền:** Admin / Receptionist.
 - **Input:** days?:7|30 (mặc định 7).
-- **Output 200:** {available:false,message,days:[]} hoặc {available:true,model,simulated:boolean,historyDays,lastObservedDate,intervalMethod,summary,backtest:{days,revenueMAE,demandMAE},days:[{date,revenue,demand,revenueRange:{low,high},demandRange:{low,high}}]}.
+- **Output 200:** {available:false,message,days:[]} hoặc {available:true,model,historyDays,lastObservedDate,intervalMethod,summary,backtest:{days,revenueMAE,demandMAE},days:[{date,revenue,demand,revenueRange:{low,high},demandRange:{low,high}}]}.
 - **FE sử dụng:** [frontend/src/features/reports/Assistant.jsx](../frontend/src/features/reports/Assistant.jsx).
-- **Quy tắc:** Cần ít nhất 56 ngày lịch sử; mô hình `weekday-trend-v2` hồi quy riêng từng thứ với xu hướng giới hạn, kiểm thử 14 ngày chỉ dùng quá khứ. Không gọi LLM cho endpoint này. `summary` có totalRevenue,totalDemand,averageDailyRevenue,revenueChangePercent,demandChangePercent,peakDate; phần trăm so bình quân ngày kỳ trước cùng độ dài, null nếu kỳ trước bằng 0. Khoảng low/high là khoảng tham khảo từ phân vị 90% sai số kiểm thử và thời hạn, không phải xác suất bảo đảm. `simulated=true` khi khoảng lịch sử chứa seed 60 ngày. [Seed/deploy 1.0.2](release-1.0.2.md).
+- **Quy tắc:** Cần ít nhất 56 ngày lịch sử; mô hình `weekday-trend-v2` hồi quy riêng từng thứ với xu hướng giới hạn, kiểm thử 14 ngày chỉ dùng quá khứ. Không gọi LLM cho endpoint này. `summary` có totalRevenue,totalDemand,averageDailyRevenue,revenueChangePercent,demandChangePercent,peakDate; phần trăm so bình quân ngày kỳ trước cùng độ dài, null nếu kỳ trước bằng 0. Khoảng low/high là khoảng tham khảo từ phân vị 90% sai số kiểm thử và thời hạn, không phải xác suất bảo đảm. Từ 01/11, public API và AI không trả nhãn simulated; dữ liệu dự báo lấy từ lịch sử trong DB, không thay đổi/xóa nguồn dữ liệu nội bộ.
 
 ### POST `/api/ai/draft`
 

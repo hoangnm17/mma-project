@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { View } from "react-native";
 import { Button, Text, Chip } from "react-native-paper";
 import { useSession } from "../../core/session";
+import { MealAssistantPicker } from "./MealAssistants";
 import {
   Screen,
   Panel,
@@ -38,7 +39,7 @@ export default function Orders({ kind = "FOOD", purpose = "MEAL_ASSISTANCE" }) {
   const title = special
     ? privateSupport
       ? "Gọi hỗ trợ riêng"
-      : "Hỗ trợ ăn uống"
+      : "Đút thức ăn"
     : "Đồ ăn & thức uống";
   const [tab, setTab] = useState("orders");
   const [page, setPage] = useState(1);
@@ -46,6 +47,7 @@ export default function Orders({ kind = "FOOD", purpose = "MEAL_ASSISTANCE" }) {
   const [catalogueSearch, setCatalogueSearch] = useState("");
   const [catalogueForm, setCatalogueForm] = useState(null);
   const [orderForm, setOrderForm] = useState(null);
+  const [stayPage, setStayPage] = useState(1);
   const [selectedServiceId, setSelectedServiceId] = useState("");
   const [serviceSearch, setServiceSearch] = useState("");
   const mutation = useAction();
@@ -60,12 +62,30 @@ export default function Orders({ kind = "FOOD", purpose = "MEAL_ASSISTANCE" }) {
     { ...scope, page, ...(status ? { status } : {}) },
     allowed,
   );
-  const stays = useResource("stays", { status: "OPEN" }, allowed && !!orderForm);
+  const stays = useResource("stays", { status: "OPEN", page: stayPage }, allowed && !!orderForm);
   const itemAction = special ? "special-service" : "food-item";
   const orderAction = special ? "special-request" : "food-order";
   const availableItems = (catalogue.data || []).filter((item) => item.enabled);
   const cart = orderForm?.items || [];
   const cartTotal = cart.reduce((sum, item) => sum + item.quantity * item.price, 0);
+  const orderIssues = [];
+  if (!orderForm?.stayId) orderIssues.push("Chọn phòng đang có khách để tạo yêu cầu.");
+  if (!cart.length) orderIssues.push("Chọn ít nhất một dịch vụ hoặc món ăn cho yêu cầu.");
+  if (orderForm?.bookAssistant && !orderForm.assistant) orderIssues.push("Chọn một người bón đang sẵn sàng, hoặc chuyển sang Chỉ đặt dịch vụ.");
+  if (cart.some(item => !Number.isInteger(item.quantity) || item.quantity < 1 || item.quantity > 1000))
+    orderIssues.push("Số lượng mỗi mục phải là số nguyên từ 1 đến 1.000.");
+  if (cartTotal > 1000000000) orderIssues.push("Tổng tiền yêu cầu không được vượt quá 1 tỷ đồng.");
+  const selectService = (serviceId) => {
+    const selected = availableItems.find(item => item.id === serviceId);
+    if (!selected || (cart.length >= 30 && !cart.some(item => item.serviceId === serviceId))) return;
+    setSelectedServiceId(serviceId);
+    setOrderForm(current => current && ({
+      ...current,
+      items: current.items.some(item => item.serviceId === serviceId) || current.items.length >= 30 ? current.items : [...current.items, {
+        serviceId: selected.id, name: selected.name, price: selected.price, unit: selected.unit, quantity: 1, notes: "",
+      }],
+    }));
+  };
   const changeCart = (serviceId, changes) =>
     setOrderForm((current) => ({
       ...current,
@@ -113,7 +133,8 @@ export default function Orders({ kind = "FOOD", purpose = "MEAL_ASSISTANCE" }) {
               mutation.reset();
               setSelectedServiceId("");
               setServiceSearch("");
-              setOrderForm({ stayId: "", items: [], notes: "" });
+              setStayPage(1);
+              setOrderForm({ stayId: "", items: [], notes: "", bookAssistant: false, assistant: null });
             }}
           >
             {special ? "Tạo yêu cầu hỗ trợ" : "Tạo đơn ăn uống"}
@@ -157,6 +178,7 @@ export default function Orders({ kind = "FOOD", purpose = "MEAL_ASSISTANCE" }) {
                       </View>
                     ))}
                     {!!order.notes && <Text>Ghi chú: {order.notes}</Text>}
+                    {!!order.mealAssistantName && <Text>Người bón: {order.mealAssistantName}</Text>}
                     <Text variant="titleMedium">Tổng: {vnMoney(order.total)}</Text>
                     {!!order.startedAt && (
                       <Text style={styles.muted}>
@@ -254,37 +276,48 @@ export default function Orders({ kind = "FOOD", purpose = "MEAL_ASSISTANCE" }) {
         {orderForm && (
           <>
             <Dataset query={stays} empty="Chưa có khách đang lưu trú.">
-              {(items) => <Select label="Lượt lưu trú" value={orderForm.stayId} onChange={(stayId) => setOrderForm({ ...orderForm, stayId })} options={items.filter((stay) => stay.status === "OPEN").map((stay) => ({ value: stay.id, label: `Phòng ${stay.number || stay.roomNumber || "—"} · ${stay.customerName || "Khách lưu trú"}` }))} />}
+              {(items) => <Select label="Lượt lưu trú" value={orderForm.stayId} onChange={(stayId) => {
+                const stay = items.find(item => item.id === stayId);
+                setOrderForm({ ...orderForm, stayId, stayLabel: `Phòng ${stay?.number || stay?.roomNumber || "—"} · ${stay?.customerName || "Khách lưu trú"}` });
+              }} options={items.filter((stay) => stay.status === "OPEN").map((stay) => ({ value: stay.id, label: `Phòng ${stay.number || stay.roomNumber || "—"} · ${stay.customerName || "Khách lưu trú"}` }))} />}
             </Dataset>
+            <Pager page={stayPage} setPage={setStayPage} count={stays.data?.length || 0} />
+            {!!orderForm.stayLabel && <Text>Đã chọn: {orderForm.stayLabel}</Text>}
             <Field label={special ? "Tìm dịch vụ hỗ trợ" : "Tìm món ăn / thức uống"} value={serviceSearch} onChangeText={setServiceSearch} />
             <Dataset query={catalogue} empty="Chưa có danh mục. Admin cần thêm mục và đơn giá trước.">
               {() => (
                 <>
-                  <Select label={special ? "Dịch vụ" : "Món ăn / thức uống"} value={selectedServiceId} onChange={setSelectedServiceId} options={availableItems.filter((item) => item.name.toLocaleLowerCase("vi").includes(serviceSearch.toLocaleLowerCase("vi"))).map((item) => ({ value: item.id, label: `${item.name} · ${vnMoney(item.price)}/${item.unit}` }))} />
-                  {!availableItems.length && <Text>Danh mục hiện chưa có mục nào đang cung cấp.</Text>}
-                  <Button disabled={!selectedServiceId || cart.length >= 30} onPress={() => {
-                    const selected = availableItems.find((item) => item.id === selectedServiceId);
-                    if (!selected) return;
-                    const old = cart.find((item) => item.serviceId === selected.id);
-                    if (old) changeCart(selected.id, { quantity: Math.min(1000, old.quantity + 1) });
-                    else setOrderForm({ ...orderForm, items: [...cart, { serviceId: selected.id, name: selected.name, price: selected.price, unit: selected.unit, quantity: 1, notes: "" }] });
-                  }}>Thêm vào yêu cầu</Button>
+                  <Text>Chạm vào dịch vụ để thêm vào yêu cầu. Chỉnh số lượng ở danh sách đã chọn bên dưới.</Text>
+                  <Select label={special ? "Dịch vụ" : "Món ăn / thức uống"} value={selectedServiceId} onChange={selectService} options={availableItems.filter((item) => item.name.toLocaleLowerCase("vi").includes(serviceSearch.toLocaleLowerCase("vi"))).map((item) => ({ value: item.id, label: `${item.name} · ${vnMoney(item.price)}/${item.unit}` }))} />
+                  {!availableItems.length && <Text>Danh mục hiện chưa có mục nào đang cung cấp. Quản trị viên cần bật hoặc thêm dịch vụ trong Danh mục & đơn giá.</Text>}
+                  {cart.length >= 30 && <Text>Đã chọn tối đa 30 mục. Bỏ một mục trước khi thêm dịch vụ khác.</Text>}
                 </>
               )}
             </Dataset>
+            {!!cart.length && <Text variant="titleMedium">Các mục trong yêu cầu ({cart.length})</Text>}
             {cart.map((item) => (
               <Panel key={item.serviceId} title={item.name}>
                 <Text>{vnMoney(item.price)} / {item.unit}</Text>
                 <Field label="Số lượng" value={item.quantity} keyboardType="numeric" onChangeText={(value) => changeCart(item.serviceId, { quantity: Number(value) })} />
                 <Field label="Ghi chú cho mục này" value={item.notes} maxLength={300} onChangeText={(notes) => changeCart(item.serviceId, { notes })} />
-                <Button onPress={() => setOrderForm({ ...orderForm, items: cart.filter((other) => other.serviceId !== item.serviceId) })}>Bỏ mục này</Button>
+                <Button onPress={() => {
+                  if (selectedServiceId === item.serviceId) setSelectedServiceId("");
+                  setOrderForm({ ...orderForm, items: cart.filter((other) => other.serviceId !== item.serviceId) });
+                }}>Bỏ mục này</Button>
               </Panel>
             ))}
             <Field label="Ghi chú yêu cầu" value={orderForm.notes} multiline maxLength={1000} onChangeText={(notes) => setOrderForm({ ...orderForm, notes })} />
+            {special && !privateSupport && <>
+              <Select label="Đặt người bón thức ăn" value={orderForm.bookAssistant} onChange={bookAssistant => setOrderForm({ ...orderForm, bookAssistant, assistant: null })} options={[{ value: false, label: "Chỉ đặt dịch vụ" }, { value: true, label: "Chọn người bón" }]} />
+              {orderForm.bookAssistant && <MealAssistantPicker value={orderForm.assistant} onChange={assistant => setOrderForm({ ...orderForm, assistant })} />}
+            </>}
             <Text variant="titleMedium">Dự tính: {vnMoney(cartTotal)}</Text>
             <Text style={styles.muted}>Đơn giá được lưu khi tạo yêu cầu. Phí chỉ được cộng vào hóa đơn sau khi hoàn thành; yêu cầu hủy không tính phí.</Text>
             <ErrorMessage error={mutation.error} />
-            <Button mode="contained" loading={mutation.isPending} disabled={mutation.isPending || !orderForm.stayId || !cart.length || cart.some((item) => !Number.isInteger(item.quantity) || item.quantity < 1 || item.quantity > 1000) || cartTotal > 1000000000} onPress={() => mutation.mutate({ name: orderAction, body: { ...scope, stayId: orderForm.stayId, notes: orderForm.notes, items: cart.map(({ serviceId, quantity, notes }) => ({ serviceId, quantity, notes })) } }, { onSuccess: () => setOrderForm(null) })}>Xác nhận tạo yêu cầu</Button>
+            {!!orderIssues.length && <Panel title="Cần hoàn tất trước khi tạo yêu cầu">
+              {orderIssues.map(issue => <Text key={issue}>{issue}</Text>)}
+            </Panel>}
+            <Button mode="contained" loading={mutation.isPending} disabled={mutation.isPending || orderIssues.length > 0} onPress={() => mutation.mutate({ name: orderAction, body: { ...scope, stayId: orderForm.stayId, notes: orderForm.notes, ...(orderForm.bookAssistant && orderForm.assistant ? { mealAssistantId: orderForm.assistant.id } : {}), items: cart.map(({ serviceId, quantity, notes }) => ({ serviceId, quantity, notes })) } }, { onSuccess: () => setOrderForm(null) })}>Xác nhận tạo yêu cầu</Button>
           </>
         )}
       </Dialog>

@@ -85,7 +85,6 @@ export default function Dashboard({ navigate }) {
         <Panel>
           <Text style={s.sectionLabel}>DOANH THU HÓA ĐƠN</Text>
           <Text style={s.revenue}>{vnMoney(data.revenue)}</Text>
-          {data.containsDemoData && <Text style={{ ...typography.bodyMedium, color: palette.warning }}>Bao gồm dữ liệu demo 60 ngày</Text>}
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 16 }}>
             <View style={{ flex: 1 }}><Text style={visualStyles.caption}>Thực thu</Text><Text style={{ fontWeight: "700" }}>{vnMoney(data.collected)}</Text></View>
             <View style={{ flex: 1 }}><Text style={visualStyles.caption}>Còn thu</Text><Text style={{ fontWeight: "700", color: data.debt > 0 ? palette.warning : palette.ink }}>{vnMoney(data.debt)}</Text></View>

@@ -16,6 +16,8 @@ test("Static web permits Expo hydration without allowing arbitrary inline script
     const scripts = policy.split(";").find(part => part.startsWith("script-src "));
     assert.ok(scripts.includes("'self'"));
     assert.ok(!scripts.includes("'unsafe-inline'"));
+    const images = policy.split(";").find(part => part.startsWith("img-src "));
+    assert.ok(images.includes("'self'") && images.includes("data:") && images.includes("blob:"), "Photo selection needs local blob previews and persisted data images");
   } finally {
     if (previous === undefined) delete process.env.WEB_DIST;
     else process.env.WEB_DIST = previous;

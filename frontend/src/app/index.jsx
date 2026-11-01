@@ -20,6 +20,7 @@ import Cleaner from "../features/cleaner/Cleaner";
 import Admin from "../features/admin/Admin";
 import Notifications from "../features/notifications/Notifications";
 import Orders from "../features/orders/Orders";
+import MealAssistants from "../features/orders/MealAssistants";
 import { Screen } from "../core/ui";
 import { Icon, featureIcons, MenuItem, palette } from "../core/visuals";
 export default function Home() {
@@ -51,11 +52,11 @@ export default function Home() {
   const moreOptions = cleaner
     ? [["notifications", "Thông báo"]]
     : [
-        ["stays", "Lưu trú"],
+        ["stays", "Lịch sử lưu trú"],
         ["housekeeping", "Dọn phòng"],
         ["food", "Ăn uống"],
         ...(session.user.role === "Admin" || session.user.canAccessSpecialServices
-          ? [["mealSupport", "Hỗ trợ ăn uống"], ["privateSupport", "Gọi hỗ trợ riêng"]]
+          ? [["mealSupport", "Đút thức ăn"], ["privateSupport", "Gọi hỗ trợ riêng"]]
           : []),
         ["invoices", "Hóa đơn"],
         ["incidents", "Sự cố"],
@@ -64,6 +65,7 @@ export default function Home() {
         ...(session.user.role === "Admin"
           ? [
               ["admin", "Quản trị"],
+              ["mealAssistants", "Quản lý người bón"],
               ["marketing", "Chăm sóc khách"],
             ]
           : []),
@@ -88,6 +90,7 @@ export default function Home() {
     food: <Orders />,
     mealSupport: <Orders kind="SPECIAL" purpose="MEAL_ASSISTANCE" />,
     privateSupport: <Orders kind="SPECIAL" purpose="PRIVATE_SUPPORT" />,
+    mealAssistants: <MealAssistants />,
     cleaner: (
       <Cleaner
         initialTab="offers"

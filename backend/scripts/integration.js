@@ -24,6 +24,7 @@ try {
       "test/integration/mongo.test.js",
       "test/integration/hotel-requirements.test.js",
       "test/integration/orders.test.js",
+      "test/integration/meal-assistants.test.js",
       "test/integration/requirements.test.js",
       "test/integration/seed-demo.test.js",
       "test/integration/seed-history.test.js",
