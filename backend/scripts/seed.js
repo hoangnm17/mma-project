@@ -1,4 +1,6 @@
 import bcrypt from "bcryptjs";
+// Historical Cleaner/DAY fixtures used by integration and UI smoke tests only.
+// New demo environments use npm run seed (seed-demo.js).
 import { transaction, query, one, closeDatabase } from "../src/db.js";
 import { id } from "../src/repository.js";
 import { policy } from "../src/domain.js";

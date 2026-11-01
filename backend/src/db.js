@@ -6,6 +6,7 @@ let connection;
 export async function database() {
   if (!connection) {
     const client = new MongoClient(config.mongo.uri, {
+      ...(config.mongo.authDatabase ? { authSource: config.mongo.authDatabase } : {}),
       maxPoolSize: config.mongo.poolSize,
       minPoolSize: 0,
       serverSelectionTimeoutMS: 10000,

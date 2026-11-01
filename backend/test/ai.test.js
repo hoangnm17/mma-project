@@ -110,3 +110,26 @@ test("Forecast từ chối thiếu lịch sử và backtest chỉ nhìn quá kh�
   assert.equal(f.backtest.demandMAE, 0);
   assert.equal(f.days[0].date, "2026-03-12");
 });
+
+test("Forecast follows weekly trends, widens reference ranges and handles zero demand", () => {
+  const series = Array.from({ length: 70 }, (_, i) => ({
+    date: new Date(Date.UTC(2026, 0, 1 + i)).toISOString().slice(0, 10),
+    revenue: 100000 + i * 2000,
+    demand: 10 + Math.floor(i / 7),
+  }));
+  const result = weeklyForecast(series, 30);
+  assert.equal(result.model, "weekday-trend-v2");
+  assert(result.days[0].revenue > series.at(-1).revenue);
+  assert.equal(result.backtest.revenueMAE, 0);
+  assert(result.summary.revenueChangePercent > 0);
+  assert.equal(result.summary.totalDemand, result.days.reduce((sum, day) => sum + day.demand, 0));
+  for (const day of result.days) {
+    assert(day.revenueRange.low <= day.revenue && day.revenueRange.high >= day.revenue);
+    assert(day.demandRange.low >= 0 && day.demandRange.high >= day.demand);
+  }
+  const zero = weeklyForecast(series.map(row => ({ ...row, revenue: 0, demand: 0 })), 7);
+  assert.equal(zero.summary.totalRevenue, 0);
+  assert.equal(zero.summary.revenueChangePercent, null);
+  assert(zero.days.every(day => Number.isFinite(day.revenue) && day.revenueRange.low === 0));
+  assert.throws(() => weeklyForecast(series, 14), error => error.status === 400);
+});

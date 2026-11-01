@@ -1,0 +1,6 @@
+# The deploy ZIP installs this file as its root compose.yaml.
+# Preserve the existing deploy_* containers, network and named volumes.
+name: deploy
+include:
+  - path: deploy/compose.yaml
+    env_file: deploy/.env

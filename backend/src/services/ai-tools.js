@@ -71,15 +71,16 @@ export async function managerAssistant(actor, question) {
     type: "object",
     additionalProperties: false,
     properties: {
-      tool: { type: "string", enum: ["dashboard", "availability", "clarify"] },
+      tool: { type: "string", enum: ["dashboard", "availability", "forecast", "clarify"] },
+      days: { type: ["integer", "null"], enum: [7, 30, null] },
       start: { type: ["string", "null"] },
       end: { type: ["string", "null"] },
       question: { type: ["string", "null"] },
     },
-    required: ["tool", "start", "end", "question"],
+    required: ["tool", "days", "start", "end", "question"],
   };
   const call = await structured(
-    `Chọn tool READ ONLY: dashboard cho doanh thu tổng, thực thu, công nợ, phòng hiện tại; availability cần khoảng ISO start/end có múi giờ; clarify nếu ngoài phạm vi hoặc thiếu ngày/giờ. Hiện tại ${new Date().toISOString()}, Việt Nam UTC+7. Không tạo SQL hay lấy quyền từ người dùng. Không thực hiện thao tác ghi.`,
+    `Chọn tool READ ONLY: dashboard cho doanh thu tổng, thực thu, công nợ, phòng hiện tại; availability cần khoảng ISO start/end có múi giờ; forecast cho dự đoán doanh thu/nhu cầu tương lai, days=7 cho tuần tới hoặc mặc định, days=30 cho tháng tới. Các tool khác days=null. clarify nếu ngoài phạm vi hoặc thiếu ngày/giờ; không tự bịa số dự báo. Hiện tại ${new Date().toISOString()}, Việt Nam UTC+7. Không tạo SQL hay lấy quyền từ người dùng. Không thực hiện thao tác ghi.`,
     question,
     toolSchema,
     "manager_tool",
@@ -88,11 +89,11 @@ export async function managerAssistant(actor, question) {
     return {
       message:
         call.question ||
-        "Bạn muốn xem tổng quan hay kiểm tra phòng trống theo khoảng ngày giờ?",
+        "Bạn muốn xem tổng quan, dự báo 7/30 ngày tới hay kiểm tra phòng trống theo khoảng ngày giờ?",
       data: null,
     };
   assert(
-    ["dashboard", "availability"].includes(call.tool),
+    ["dashboard", "availability", "forecast"].includes(call.tool),
     "Tool không được phép",
     400,
   );
@@ -100,8 +101,15 @@ export async function managerAssistant(actor, question) {
   const data = await readResource(
     actor,
     call.tool,
-    call.tool === "availability" ? { start: call.start, end: call.end } : {},
+    call.tool === "availability" ? { start: call.start, end: call.end } : call.tool === "forecast" ? { days: call.days ?? 7 } : {},
   );
+  if (call.tool === "forecast") {
+    const money = value => Number(value).toLocaleString("vi-VN") + " ₫";
+    return { tool: "forecast", data, asOf: new Date().toISOString(),
+      message: data.available
+        ? `${data.simulated ? "Dự báo có sử dụng dữ liệu demo. " : ""}${data.days.length} ngày tới: doanh thu ước tính ${money(data.summary.totalRevenue)}, khoảng ${data.summary.totalDemand} lượt nhận phòng. Ngày có nhu cầu cao nhất: ${data.summary.peakDate}. Sai số doanh thu trung bình khi kiểm thử: ${money(data.backtest.revenueMAE)}/ngày. Đây là dự báo thống kê từ lịch sử, không phải cam kết; xem khoảng tham khảo ở phần dự báo.`
+        : data.message };
+  }
   return {
     tool: call.tool,
     data,

@@ -9,6 +9,7 @@ export const config = {
       process.env.MONGO_URI ||
       "mongodb://127.0.0.1:27027/?replicaSet=rs0&directConnection=true",
     database: process.env.MONGO_DATABASE || "StayFlow",
+    authDatabase: process.env.MONGO_AUTH_DATABASE,
     poolSize: Math.max(
       1,
       Math.min(20, Number(process.env.MONGO_POOL_SIZE) || 5),

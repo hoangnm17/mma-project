@@ -37,18 +37,14 @@ services:
     environment:
       MONGO_URI: ${MONGO_ADMIN_URI:?required}
       MONGO_ADMIN_URI: ${MONGO_ADMIN_URI:?required}
-      MONGO_DATABASE: ${MONGO_DATABASE:-StayFlow}
+      MONGO_DATABASE: ${MONGO_DATABASE:-StayFlowDemoV3}
       MONGO_APP_USER: stayflow_app
       MONGO_APP_PASSWORD: ${MONGO_APP_PASSWORD:?required}
       BOOTSTRAP_ADMIN_USERNAME: ${BOOTSTRAP_ADMIN_USERNAME:-admin}
       BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:?required}
       DEMO_SEED_PASSWORD: ${DEMO_SEED_PASSWORD:-}
-    command:
-      [
-        sh,
-        -c,
-        "node scripts/migrate.js && node scripts/provision-runtime.js && node scripts/bootstrap-admin.js",
-      ]
+      DEMO_AUTO_SEED: ${DEMO_AUTO_SEED:-true}
+    command: [node, scripts/initialize.js]
     depends_on:
       mongo-init: { condition: service_completed_successfully }
   api:
@@ -59,7 +55,8 @@ services:
     mem_limit: 512m
     environment:
       MONGO_URI: ${MONGO_URI:?required}
-      MONGO_DATABASE: ${MONGO_DATABASE:-StayFlow}
+      MONGO_DATABASE: ${MONGO_DATABASE:-StayFlowDemoV3}
+      MONGO_AUTH_DATABASE: ${MONGO_DATABASE:-StayFlowDemoV3}
       MONGO_POOL_SIZE: 5
       JWT_SECRET: ${JWT_SECRET:?required}
       TRUST_PROXY: "1"

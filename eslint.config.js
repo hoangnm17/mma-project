@@ -8,6 +8,7 @@ module.exports = [
       "**/dist/**",
       "**/.expo/**",
       "artifacts/**",
+      ".agents/**",
       "**/node_modules/**",
     ],
   },

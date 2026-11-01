@@ -1,5 +1,9 @@
 # StayFlow
 
+Gói deploy mới: [ZIP tự migrate + seed 60 ngày khi `docker compose up -d --build`](docs/deploy-autoseed.md), project `deploy`, DB `StayFlowDemoV3`. Compose ở gốc ZIP là bản cloud; Compose ở gốc repository này vẫn dành cho Mongo local.
+
+Bản 1.0.2: [hướng dẫn ZIP deploy, seed lịch sử 60 ngày và dự báo/AI](docs/release-1.0.2.md). DB đã có dữ liệu dùng `npm --prefix backend run seed:history`; không chạy seed ban đầu để cập nhật.
+
 ## Cấu trúc backend và frontend
 
 ```text
@@ -66,7 +70,7 @@ Database demo riêng `StayFlow`, MongoDB replica set `rs0`, cổng localhost **2
 
 `.env` local đã được tạo trong phiên triển khai và bị gitignore. Khi clone mới, tự điền secret; `DEMO_SEED_PASSWORD` tối thiểu 10 ký tự. Seed chỉ dùng trong demo, chạy lại không xóa/ghi đè dữ liệu.
 
-Tài khoản: `admin`, `letan`, `cleaner1`…`cleaner6`; mật khẩu từ `DEMO_SEED_PASSWORD`. Môi trường đã seed trong phiên này dùng `StayFlowDemo!2026`. Có 20 phòng, 3 loại, 6 Cleaner, 6 khách, 3 stays, 3 bookings và 2 tasks. Ca demo hết hạn sau 10 giờ; nếu demo ngày khác, Admin thêm ca mới.
+`npm run seed` tạo dữ liệu demo hiện hành: 20 phòng, 3 loại phòng, 6 khách, 3 lượt ở HOUR/NIGHT đang mở, 3 booking, danh mục FOOD/SPECIAL, 3 đơn mẫu, 3 task dọn trực tiếp/turnover và 1 hóa đơn đã thu tiền. Tài khoản `admin` (nếu chưa có), `letan` và `letan_special` dùng `DEMO_SEED_PASSWORD`; `letan_special` có quyền dịch vụ riêng. Admin bootstrap sẵn được giữ nguyên mật khẩu/quyền. Chỉ chạy với DB demo trống hoặc chỉ có một Admin bootstrap; DB có dữ liệu nghiệp vụ sẽ bị từ chối. Chạy lại seed đã hoàn tất trả `skipped:true`. Không tạo Cleaner/DAY mới. `backend/scripts/seed.js` chỉ giữ fixture lịch sử cho integration/UI smoke.
 
 ## Mobile và form khách
 

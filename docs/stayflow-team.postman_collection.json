@@ -3168,7 +3168,7 @@
               ],
               "query": []
             },
-            "description": "Quyền: Admin / Receptionist\nInput: from?,to?:ISO phải có cùng nhau và to>from; chỉ Admin được truyền range.\nOutput: Lễ tân: {roomCounts,occupied,pending,verifying,arrivals,departures}; Admin thêm revenue,collected,debt,unpaidInvoices,report.\nreport có from,to,bySource:{ROOM,SERVICE,FOOD,SPECIAL},invoiceCounts:{UNPAID,PARTIAL,PAID},arrivals,departures,stays,averageStayHours,usedRooms,occupancyRate. Không có range thì tài chính tổng lịch sử, occupancy dùng hôm nay.\n"
+            "description": "Quyền: Admin / Receptionist\nInput: from?,to?:ISO phải có cùng nhau và to>from; chỉ Admin được truyền range.\nOutput: Lễ tân: {roomCounts,occupied,pending,verifying,arrivals,departures}; Admin thêm revenue,collected,debt,unpaidInvoices,report.\nreport có from,to,bySource:{ROOM,SERVICE,FOOD,SPECIAL},invoiceCounts:{UNPAID,PARTIAL,PAID},arrivals,departures,stays,averageStayHours,usedRooms,occupancyRate. Không có range thì tài chính tổng lịch sử, occupancy dùng hôm nay.\ncontainsDemoData:boolean: hóa đơn trong khoảng chọn có chứa lịch sử demo.\n"
           }
         },
         {
@@ -3231,7 +3231,7 @@
                 }
               ]
             },
-            "description": "Quyền: Admin / Receptionist\nInput: days?:7|30 (mặc định 7).\nOutput: {available:false,message,days:[]} hoặc {available:true,model,simulated:false,historyDays,backtest:{days,revenueMAE,demandMAE},days:[{date,revenue,demand}]}.\nCần ít nhất 56 ngày lịch sử; mô hình weekday-mean-v1, không phải LLM.\n"
+            "description": "Quyền: Admin / Receptionist\nInput: days?:7|30, mặc định 7.\nOutput: available, model=weekday-trend-v2, simulated:boolean, historyDays,lastObservedDate,intervalMethod,summary:{totalRevenue,totalDemand,averageDailyRevenue,revenueChangePercent,demandChangePercent,peakDate}, backtest:{days,revenueMAE,demandMAE}, days:[{date,revenue,demand,revenueRange:{low,high},demandRange:{low,high}}]. Thiếu 56 ngày: {available:false,message,days:[]}.\nHồi quy theo thứ và xu hướng có giới hạn; không gọi LLM. Khoảng là tham khảo, không phải xác suất bảo đảm. simulated=true khi có lịch sử demo. Xem docs/release-1.0.2.md.\n"
           }
         },
         {
@@ -3266,7 +3266,7 @@
               ],
               "query": []
             },
-            "description": "Quyền: Guest, đúng stay; Admin / Receptionist\nInput: stayId:UUID; text:trim 3..1000.\nOutput: {serviceCode,checklist,requestedDate,windowStart,windowEnd,clarificationNeeded,clarificationQuestion,provider,requiresConfirmation:true}.\nKhông ghi task; ngày/giờ có thể null; hỏi lại và xác nhận form trước task-create.\n",
+            "description": "Quyền: Guest, đúng stay; Admin / Receptionist\nInput: stayId:UUID; text:trim 3..1000.\nOutput: {serviceCode,checklist,requestedDate,windowStart,windowEnd,clarificationNeeded,clarificationQuestion,provider,requiresConfirmation:true}.\nKhông ghi task; ngày/giờ có thể null; hỏi lại và xác nhận form trước task-create.\nLỗi provider: HTTP 503 {error,code?,providerStatus?}; code AI_PROVIDER_REQUEST/AUTH/MODEL/QUOTA/UNAVAILABLE/TIMEOUT/FAILURE. Không đăng xuất khi key AI lỗi. Quota StayFlow: HTTP 429. Xem docs/gemini-and-demo-seed.md.\n",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"stayId\": \"{{stayId}}\",\n  \"text\": \"Tôi muốn thêm khăn vào chiều mai, vui lòng hỏi lại giờ cụ thể\"\n}",
@@ -3310,10 +3310,10 @@
               ],
               "query": []
             },
-            "description": "Quyền: Admin / Receptionist\nInput: question:trim 3..1000.\nOutput: {tool:\"dashboard\"|\"availability\",message,data,asOf} hoặc {message,data:null} khi cần làm rõ.\nRead-only allowlist; dữ liệu vẫn áp quyền theo role.\n",
+            "description": "Quyền: Admin / Receptionist\nInput: question:trim 3..1000.\nOutput: {tool:\"dashboard\"|\"availability\"|\"forecast\",message,data,asOf} hoặc {message,data:null} khi cần làm rõ.\nRead-only allowlist; dữ liệu vẫn áp quyền theo role.\nLỗi provider: HTTP 503 {error,code?,providerStatus?}; code AI_PROVIDER_REQUEST/AUTH/MODEL/QUOTA/UNAVAILABLE/TIMEOUT/FAILURE. Không đăng xuất khi key AI lỗi. Quota StayFlow: HTTP 429. Xem docs/gemini-and-demo-seed.md.\nCâu hỏi tương lai chọn forecast 7/30 ngày. Số liệu từ báo cáo dự báo, không để LLM tự bịa con số.\n",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"question\": \"Có bao nhiêu phòng đang có khách?\"\n}",
+              "raw": "{\n  \"question\": \"Dự báo doanh thu và nhu cầu 7 ngày tới, kèm sai số và lưu ý dữ liệu demo nếu có.\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -3354,7 +3354,7 @@
               ],
               "query": []
             },
-            "description": "Quyền: Admin\nInput: brief:string 5..1000.\nOutput: {draft:string,requiresApproval:true}.\nChỉ tạo bản nháp, không tự gửi.\n",
+            "description": "Quyền: Admin\nInput: brief:string 5..1000.\nOutput: {draft:string,requiresApproval:true}.\nChỉ tạo bản nháp, không tự gửi.\nLỗi provider: HTTP 503 {error,code?,providerStatus?}; code AI_PROVIDER_REQUEST/AUTH/MODEL/QUOTA/UNAVAILABLE/TIMEOUT/FAILURE. Không đăng xuất khi key AI lỗi. Quota StayFlow: HTTP 429. Xem docs/gemini-and-demo-seed.md.\n",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"brief\": \"Viết lời cảm ơn khách đã lưu trú, không thêm ưu đãi hay giá\"\n}",

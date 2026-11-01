@@ -973,7 +973,7 @@ Nguồn: `backend/src/app.js`, `auth.js`, `reads.js`, `mongo-views.js`, `service
 - **Input:** from?,to?:ISO phải có cùng nhau và to>from; chỉ Admin được truyền range.
 - **Output 200:** Lễ tân: {roomCounts,occupied,pending,verifying,arrivals,departures}; Admin thêm revenue,collected,debt,unpaidInvoices,report.
 - **FE sử dụng:** [frontend/src/features/reports/Dashboard.jsx](../frontend/src/features/reports/Dashboard.jsx).
-- **Quy tắc:** report có from,to,bySource:{ROOM,SERVICE,FOOD,SPECIAL},invoiceCounts:{UNPAID,PARTIAL,PAID},arrivals,departures,stays,averageStayHours,usedRooms,occupancyRate. Không có range thì tài chính tổng lịch sử, occupancy dùng hôm nay.
+- **Quy tắc:** report có from,to,bySource:{ROOM,SERVICE,FOOD,SPECIAL},invoiceCounts:{UNPAID,PARTIAL,PAID},arrivals,departures,stays,averageStayHours,usedRooms,occupancyRate. `containsDemoData:boolean` ở ngoài report cho biết hóa đơn trong khoảng chọn có lịch sử demo. Không có range thì tài chính tổng lịch sử, occupancy dùng hôm nay.
 
 ### GET `/api/reports.csv`
 
@@ -987,9 +987,9 @@ Nguồn: `backend/src/app.js`, `auth.js`, `reads.js`, `mongo-views.js`, `service
 
 - **Quyền:** Admin / Receptionist.
 - **Input:** days?:7|30 (mặc định 7).
-- **Output 200:** {available:false,message,days:[]} hoặc {available:true,model,simulated:false,historyDays,backtest:{days,revenueMAE,demandMAE},days:[{date,revenue,demand}]}.
+- **Output 200:** {available:false,message,days:[]} hoặc {available:true,model,simulated:boolean,historyDays,lastObservedDate,intervalMethod,summary,backtest:{days,revenueMAE,demandMAE},days:[{date,revenue,demand,revenueRange:{low,high},demandRange:{low,high}}]}.
 - **FE sử dụng:** [frontend/src/features/reports/Assistant.jsx](../frontend/src/features/reports/Assistant.jsx).
-- **Quy tắc:** Cần ít nhất 56 ngày lịch sử; mô hình weekday-mean-v1, không phải LLM.
+- **Quy tắc:** Cần ít nhất 56 ngày lịch sử; mô hình `weekday-trend-v2` hồi quy riêng từng thứ với xu hướng giới hạn, kiểm thử 14 ngày chỉ dùng quá khứ. Không gọi LLM cho endpoint này. `summary` có totalRevenue,totalDemand,averageDailyRevenue,revenueChangePercent,demandChangePercent,peakDate; phần trăm so bình quân ngày kỳ trước cùng độ dài, null nếu kỳ trước bằng 0. Khoảng low/high là khoảng tham khảo từ phân vị 90% sai số kiểm thử và thời hạn, không phải xác suất bảo đảm. `simulated=true` khi khoảng lịch sử chứa seed 60 ngày. [Seed/deploy 1.0.2](release-1.0.2.md).
 
 ### POST `/api/ai/draft`
 
@@ -998,6 +998,7 @@ Nguồn: `backend/src/app.js`, `auth.js`, `reads.js`, `mongo-views.js`, `service
 - **Output 200:** {serviceCode,checklist,requestedDate,windowStart,windowEnd,clarificationNeeded,clarificationQuestion,provider,requiresConfirmation:true}.
 - **FE sử dụng:** [frontend/src/features/housekeeping/TaskForm.jsx](../frontend/src/features/housekeeping/TaskForm.jsx).
 - **Quy tắc:** Không ghi task; ngày/giờ có thể null; hỏi lại và xác nhận form trước task-create.
+- **Lỗi provider (áp dụng cả manager/marketing):** HTTP 503 `{error,code?,providerStatus?}`. `code`: AI_PROVIDER_REQUEST (400 upstream), AI_PROVIDER_AUTH (401/403), AI_PROVIDER_MODEL (404), AI_PROVIDER_QUOTA (429), AI_PROVIDER_UNAVAILABLE (HTTP khác), AI_PROVIDER_TIMEOUT (timeout/abort), AI_PROVIDER_FAILURE (mạng/parse). Không trả nguyên body provider, không dùng HTTP 401 của nhân viên cho lỗi key AI. Thiếu cấu hình/output không đầy đủ có thể chỉ có `{error}` như trước. Quota StayFlow vẫn trả HTTP 429. [Cấu hình/deploy và seed](gemini-and-demo-seed.md).
 
 ```json
 {
@@ -1010,9 +1011,9 @@ Nguồn: `backend/src/app.js`, `auth.js`, `reads.js`, `mongo-views.js`, `service
 
 - **Quyền:** Admin / Receptionist.
 - **Input:** question:trim 3..1000.
-- **Output 200:** {tool:"dashboard"|"availability",message,data,asOf} hoặc {message,data:null} khi cần làm rõ.
+- **Output 200:** {tool:"dashboard"|"availability"|"forecast",message,data,asOf} hoặc {message,data:null} khi cần làm rõ.
 - **FE sử dụng:** [frontend/src/features/reports/Assistant.jsx](../frontend/src/features/reports/Assistant.jsx).
-- **Quy tắc:** Read-only allowlist; dữ liệu vẫn áp quyền theo role.
+- **Quy tắc:** Read-only allowlist; dữ liệu vẫn áp quyền theo role. Câu hỏi tương lai chọn tool forecast, days=7 hoặc 30; số liệu/lời trả lời lấy từ GET forecast, không dùng LLM tự tạo con số. UI có câu hỏi gợi ý; chỉ gửi khi bấm Hỏi trợ lý. Nếu chưa đủ lịch sử, trả thông báo thay cho con số dự đoán.
 
 ```json
 {

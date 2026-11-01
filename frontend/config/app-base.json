@@ -2,7 +2,7 @@
   "expo": {
     "name": "StayFlow",
     "slug": "stayflow-mma",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "orientation": "portrait",
     "icon": "./assets/images/stayflow-icon.png",
     "scheme": "stayflow",
@@ -11,7 +11,7 @@
       "icon": "./assets/images/stayflow-icon.png"
     },
     "android": {
-      "versionCode": 3,
+      "versionCode": 4,
       "adaptiveIcon": {
         "backgroundColor": "#102D46",
         "foregroundImage": "./assets/images/stayflow-icon.png"

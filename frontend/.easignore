@@ -1,4 +1,6 @@
 .git
+.agents
+**/.agents
 **/node_modules
 **/.expo
 **/dist

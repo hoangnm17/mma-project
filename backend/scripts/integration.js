@@ -25,6 +25,10 @@ try {
       "test/integration/hotel-requirements.test.js",
       "test/integration/orders.test.js",
       "test/integration/requirements.test.js",
+      "test/integration/seed-demo.test.js",
+      "test/integration/seed-history.test.js",
+      "test/integration/initialize.test.js",
+      "test/integration/ai-http.test.js",
     ],
   ]) {
     const run = spawnSync(process.execPath, args, { env, stdio: "inherit" });

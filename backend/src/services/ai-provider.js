@@ -1,10 +1,17 @@
-import { assert } from "../domain.js";
+import { assert, HttpError } from "../domain.js";
+
+function unavailable(code, message, providerStatus) {
+  const error = new HttpError(503, message + ". Vui lòng dùng form thường.");
+  error.aiCode = code;
+  if (providerStatus) error.providerStatus = providerStatus;
+  throw error;
+}
 
 export function aiConfiguration() {
-  const provider = (process.env.AI_PROVIDER || (process.env.GEMINI_API_KEY?.trim() ? "gemini" : "openai")).trim().toLowerCase();
+  const provider = process.env.AI_PROVIDER?.trim().toLowerCase() || (process.env.GEMINI_API_KEY?.trim() ? "gemini" : "openai");
   return { provider,
     apiKey: (provider === "gemini" ? process.env.GEMINI_API_KEY : process.env.OPENAI_API_KEY)?.trim(),
-    model: provider === "gemini" ? (process.env.GEMINI_MODEL || "gemini-3.5-flash-lite") : (process.env.OPENAI_MODEL || "gpt-4.1-mini") };
+    model: provider === "gemini" ? (process.env.GEMINI_MODEL?.trim() || "gemini-3.5-flash-lite").replace(/^models\//, "") : (process.env.OPENAI_MODEL?.trim() || "gpt-4.1-mini") };
 }
 
 export function aiConfigured() {
@@ -24,7 +31,6 @@ export async function providerStructured(instructions, input, schema, name, fetc
       method: "POST", signal: AbortSignal.timeout(15000),
       headers: { "Content-Type": "application/json", ...(gemini ? { "x-goog-api-key": apiKey } : { Authorization: "Bearer " + apiKey }) },
       body: JSON.stringify(gemini ? {
-        store: false,
         systemInstruction: { parts: [{ text: instructions }] },
         contents: [{ role: "user", parts: [{ text: input }] }],
         generationConfig: { responseMimeType: "application/json", responseJsonSchema: schema, maxOutputTokens: 900, temperature: 0.2 },
@@ -35,7 +41,17 @@ export async function providerStructured(instructions, input, schema, name, fetc
     });
     // Provider authentication failures must not become user-session 401s, and
     // provider error bodies can contain credentials: never return or log them.
-    assert(response.ok, response.status === 429 ? "AI đã đạt giới hạn sử dụng. Vui lòng thử lại sau." : "Dịch vụ AI hiện không khả dụng. Vui lòng dùng form thường.", 503);
+    if (!response.ok) {
+      const failures = {
+        400: ["AI_PROVIDER_REQUEST", "Provider từ chối payload hoặc cấu hình AI"],
+        401: ["AI_PROVIDER_AUTH", "API key AI không hợp lệ"],
+        403: ["AI_PROVIDER_AUTH", "API key AI chưa được cấp quyền hoặc bị hạn chế"],
+        404: ["AI_PROVIDER_MODEL", "Model AI không tồn tại hoặc chưa được cấp quyền"],
+        429: ["AI_PROVIDER_QUOTA", "Provider AI đã đạt giới hạn sử dụng, hãy thử lại sau"],
+      };
+      const [code, message] = failures[response.status] || ["AI_PROVIDER_UNAVAILABLE", "Dịch vụ AI hiện không khả dụng"];
+      unavailable(code, message, response.status);
+    }
     const data = await response.json();
     const output = gemini
       ? data.candidates?.[0]?.content?.parts?.filter(part => !part.thought).map(part => part.text || "").join("")
@@ -46,6 +62,7 @@ export async function providerStructured(instructions, input, schema, name, fetc
     return result;
   } catch (error) {
     if (error.status) throw error;
-    assert(false, "AI tạm không khả dụng. Vui lòng dùng form thường.", 503);
+    if (["TimeoutError", "AbortError"].includes(error.name)) unavailable("AI_PROVIDER_TIMEOUT", "Dịch vụ AI phản hồi quá chậm");
+    unavailable("AI_PROVIDER_FAILURE", "AI tạm không khả dụng hoặc trả dữ liệu chưa hợp lệ");
   }
 }

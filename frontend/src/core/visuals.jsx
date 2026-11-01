@@ -2,17 +2,8 @@ import React from "react";
 import { View, StyleSheet, Pressable } from "react-native";
 import { Text } from "react-native-paper";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
-export const palette = {
-  ink: "#142D43",
-  teal: "#087E83",
-  mint: "#E5F4EF",
-  blue: "#E9F1FE",
-  amber: "#FFF2DA",
-  rose: "#FCEBEC",
-  muted: "#738494",
-  line: "#E7EEF1",
-  canvas: "#F5F8FA",
-};
+import { palette } from "./theme";
+export { palette } from "./theme";
 export function Icon({ name, size = 22, color = palette.teal, ...props }) {
   return (
     <MaterialCommunityIcons name={name} size={size} color={color} {...props} accessible={false} accessibilityElementsHidden importantForAccessibility="no-hide-descendants" />
@@ -55,11 +46,11 @@ export function IconTile({ name, tone = "mint", size = 44 }) {
         size={size * 0.5}
         color={
           tone === "amber"
-            ? "#AC7419"
+            ? palette.warning
             : tone === "rose"
-              ? "#B75C65"
+              ? palette.error
               : tone === "blue"
-                ? "#437BC7"
+                ? palette.info
                 : palette.teal
         }
       />
@@ -103,7 +94,7 @@ export function StatCard({ icon, value, label, tone = "mint", onPress }) {
     <Pressable
       accessibilityRole={onPress ? "button" : undefined}
       onPress={onPress}
-      style={s.stat}
+      style={({ pressed }) => [s.stat, onPress && pressed && { backgroundColor: palette.mint }]}
     >
       <IconTile name={icon} tone={tone} size={36} />
       <Text style={s.statValue}>{value}</Text>
@@ -119,7 +110,7 @@ export const visualStyles = StyleSheet.create({
     letterSpacing: 2,
     color: palette.muted,
   },
-  caption: { fontSize: 12, lineHeight: 19, color: palette.muted },
+  caption: { fontSize: 14, lineHeight: 22, color: palette.muted },
 });
 const s = StyleSheet.create({
   iconTile: { alignItems: "center", justifyContent: "center" },
@@ -135,7 +126,7 @@ const s = StyleSheet.create({
     color: palette.ink,
     letterSpacing: -0.5,
   },
-  caption: { fontSize: 12, lineHeight: 18, color: palette.muted },
+  caption: { fontSize: 14, lineHeight: 22, color: palette.muted },
   link: { fontSize: 12, color: palette.teal, fontWeight: "700" },
   menu: {
     backgroundColor: "white",

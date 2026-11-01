@@ -1,4 +1,4 @@
-"""Verify the downloaded 1.0.1 APK matches the tested cloud release."""
+"""Verify the downloaded APK matches this source version and cloud release."""
 import hashlib
 import json
 import pathlib
@@ -7,7 +7,10 @@ import subprocess
 import zipfile
 
 root = pathlib.Path(__file__).resolve().parent.parent
-apk = root / "artifacts" / "StayFlow-1.0.1-code3.apk"
+expected = json.loads((root / "frontend/config/app-base.json").read_text(encoding="utf-8"))["expo"]
+version = expected["version"]
+version_code = expected["android"]["versionCode"]
+apk = root / "artifacts" / f"StayFlow-{version}-code{version_code}.apk"
 sdk = pathlib.Path("C:/Users/84911/AppData/Local/Android/Sdk/build-tools/36.0.0")
 with zipfile.ZipFile(apk) as archive:
     bundle = archive.read("assets/index.android.bundle")
@@ -17,8 +20,10 @@ with zipfile.ZipFile(apk) as archive:
     config = json.loads(archive.read("assets/app.config"))
     assert config["owner"] == "hoangnm17s-team"
     assert config["extra"]["eas"]["projectId"] == "431a1384-6506-47bd-9c12-b73faeafceee"
-    assert config["version"] == "1.0.1"
-    assert config["android"]["versionCode"] == 3
+    assert config["version"] == version
+    assert config["android"]["versionCode"] == version_code
+    suggestion = "Tuần tới có đông khách?"
+    assert any(suggestion.encode(encoding) in bundle for encoding in ["utf-8", "utf-16-le"]), "Missing AI suggestions from this release"
     private_ai = root / "backend" / ".env.gemini"
     if private_ai.exists():
         keys = [line.split("=", 1)[1].strip().encode() for line in private_ai.read_text(encoding="utf-8").splitlines() if line.startswith("GEMINI_API_KEY=")]
@@ -30,8 +35,10 @@ assert certificate == "3a1776d5801a9e539d075ed9e022f766beac8f03b64302f70cc704702
 manifest = subprocess.run([str(sdk / "aapt2.exe"), "dump", "xmltree", str(apk), "--file", "AndroidManifest.xml"], capture_output=True, text=True, check=True).stdout
 cleartext = next(line for line in manifest.splitlines() if "usesCleartextTraffic" in line)
 assert "0x0" in cleartext, cleartext
-result = {"version": "1.0.1", "versionCode": 3, "cloudApi": True, "oldLanApi": False, "geminiKeyEmbedded": False,
-          "sameSigningCertificate": True, "cleartextDisabled": True,
+badging = subprocess.run([str(sdk / "aapt2.exe"), "dump", "badging", str(apk)], capture_output=True, text=True, check=True).stdout
+assert re.search(r"package: name='vn\.stayflow\.mobile' versionCode='" + str(version_code) + r"' versionName='" + re.escape(version) + "'", badging), "Android manifest version/package mismatch"
+result = {"version": version, "versionCode": version_code, "cloudApi": True, "oldLanApi": False, "geminiKeyEmbedded": False,
+          "sameSigningCertificate": True, "cleartextDisabled": True, "manifestVerified": True, "aiSuggestionsBundled": True,
           "bytes": apk.stat().st_size, "sha256": hashlib.sha256(apk.read_bytes()).hexdigest()}
-(root / "artifacts" / "apk-v3-verification.json").write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
+(root / "artifacts" / f"apk-v{version_code}-verification.json").write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
 print(json.dumps(result, indent=2))

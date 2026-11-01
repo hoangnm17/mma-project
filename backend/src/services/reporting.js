@@ -101,7 +101,9 @@ export async function dashboardReport(ctx, params = {}) {
     if (elapsed > 0) { occupiedMs += elapsed; usedRooms.add(stay.roomId); }
   }
   const capacityMs = usableRooms.length * (occupancyTo - occupancyFrom);
-  return { revenue, collected, debt, unpaidInvoices,
+  const invoicedStays = new Set(stayIds);
+  const containsDemoData = stays.some(stay => invoicedStays.has(stay.id) && stay.source === "Demo 60 ngày");
+  return { revenue, collected, debt, unpaidInvoices, containsDemoData,
     report: { from: from?.toISOString() || null, to: to?.toISOString() || null, bySource, invoiceCounts,
       arrivals, departures: departures.length, stays: arrivals,
       averageStayHours: departures.length ? departures.reduce((n, row) => n + (new Date(row.endedAt) - new Date(row.startedAt)) / 3600000, 0) / departures.length : 0,

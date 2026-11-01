@@ -46,6 +46,76 @@ test("Updated hotel requirements: customer identity, optional departures and aud
   const phone = "09" + String(Math.floor(Math.random() * 100000000)).padStart(8, "0");
   const customer = { name: "Khách kiểm thử", phone, notes: "Ghi chú ban đầu" };
   try {
+    await t.test("new customers work in booking and direct check-in with optional notes and safe retries", async () => {
+      let sequence = 0;
+      for (const token of [admin.token, desk.token]) {
+        for (const action of ["booking", "checkin"]) {
+          for (const mode of ["HOUR", "NIGHT"]) {
+            const freshPhone = "07" + phone.slice(2, 9) + sequence++;
+            const r = await room("new-" + sequence);
+            const key = randomUUID();
+            const body = {
+              roomId: r.id,
+              customer: { name: "Khách mới " + sequence, phone: "+84 " + freshPhone.slice(1) },
+              guests: 1,
+              mode,
+            };
+            const result = ok(await post(token, action, body, key));
+            assert.deepEqual(ok(await post(token, action, body, key)), result);
+            const customers = await db.db.collection("Customers").find({ phone: freshPhone }).toArray();
+            assert.equal(customers.length, 1);
+            assert.equal(customers[0].name, body.customer.name);
+            assert.equal(customers[0].notes, "");
+            assert.equal(customers[0].tier, "STANDARD");
+            const collection = action === "booking" ? "Bookings" : "Stays";
+            const rows = await db.db.collection(collection).find({ roomId: r.id }).toArray();
+            assert.equal(rows.length, 1);
+            assert.equal(rows[0].id, result.id);
+            assert.equal(rows[0].customerId, customers[0].id);
+            assert.equal(rows[0].mode, mode);
+            const lookup = ok(await get(token, "customer-lookup?phone=" + freshPhone));
+            assert.equal(lookup.id, customers[0].id);
+          }
+        }
+      }
+    });
+    await t.test("standalone customer creation can be reused without losing membership", async () => {
+      const newPhone = "06" + phone.slice(2);
+      const body = { name: "Khách tạo riêng", phone: newPhone };
+      const key = randomUUID();
+      const created = ok(await post(desk.token, "customer", body, key));
+      assert.deepEqual(ok(await post(desk.token, "customer", body, key)), created);
+      assert.equal((await post(desk.token, "customer", body)).status, 409);
+      ok(await post(admin.token, "membership", { customerId: created.id, tier: "GOLD" }));
+      const r = await room("existing-customer");
+      const stay = ok(await post(desk.token, "checkin", {
+        roomId: r.id,
+        customerId: created.id,
+        customer: { ...body, phone: "+84" + newPhone.slice(1), name: "Tên cập nhật" },
+        guests: 1,
+        mode: "HOUR",
+      }));
+      assert.equal((await db.db.collection("Stays").findOne({ id: stay.id })).customerId, created.id);
+      const saved = await db.db.collection("Customers").findOne({ id: created.id });
+      assert.equal(saved.name, "Tên cập nhật");
+      assert.equal(saved.tier, "GOLD");
+      assert.equal(await db.db.collection("Customers").countDocuments({ phone: newPhone }), 1);
+    });
+    await t.test("failed direct check-in rolls back a new customer and can retry after correcting the form", async () => {
+      const r = await room("new-checkin-rollback");
+      const newPhone = "05" + phone.slice(2);
+      const body = {
+        roomId: r.id,
+        customer: { name: "Khách nhận phòng mới", phone: newPhone, notes: "" },
+        mode: "HOUR",
+        guests: 20,
+      };
+      assert.equal((await post(desk.token, "checkin", body)).status, 400);
+      assert.equal(await db.db.collection("Customers").countDocuments({ phone: newPhone }), 0);
+      assert.equal(await db.db.collection("Stays").countDocuments({ roomId: r.id }), 0);
+      ok(await post(desk.token, "checkin", { ...body, guests: 1 }));
+      assert.equal(await db.db.collection("Customers").countDocuments({ phone: newPhone }), 1);
+    });
     await t.test("concurrent bookings reuse normalized customer and derive departure", async () => {
       const a = await room("A"), b = await room("B");
       const startsAt = new Date(Date.now() + 24 * 3600000).toISOString();

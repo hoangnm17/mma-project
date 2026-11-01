@@ -31,7 +31,7 @@ docker run --rm --user "$(id -u):$(id -g)" \
 
 File `deploy/.env` chứa credentials ngẫu nhiên, quyền 600. Script không in secret, không ghi đè file có sẵn. Không dùng mật khẩu LAN đã chia sẻ trong chat cho Internet. Không public file này hoặc output `docker compose config` đã nội suy secret.
 
-Chọn `demo` tạo DEMO_SEED_PASSWORD ngẫu nhiên. Admin/letan/cleaner1…6 dùng mật khẩu này; chỉ chia sẻ riêng với nhóm test. Admin có thể tạo tài khoản riêng từng người. Nếu chỉ muốn Admin và dữ liệu trống: dùng `production` thay `demo` và bỏ `-f deploy/compose.demo.yaml` trong mọi lệnh bên dưới.
+Chọn `demo` tạo DEMO_SEED_PASSWORD ngẫu nhiên. Admin mới/letan/letan_special dùng mật khẩu này; Admin bootstrap có sẵn giữ nguyên mật khẩu. Chỉ chia sẻ riêng với nhóm test. Nếu chỉ muốn Admin và dữ liệu trống: dùng `production` thay `demo` và bỏ `-f deploy/compose.demo.yaml` trong mọi lệnh bên dưới.
 
 ## 3. Build rồi chạy
 
@@ -48,7 +48,7 @@ docker compose -p stayflow --env-file deploy/.env \
   -f deploy/compose.yaml -f deploy/compose.demo.yaml ps -a
 ```
 
-Lần đầu Mongo tự tạo root, keyfile nội bộ, khởi tạo replica set `rs0`, đợi primary; migrate tạo collections/validators/indexes và runtime user. Demo seed chạy trước bootstrap Admin để không bị bỏ qua. `mongo-init` và `migrate` phải **Exited (0)**; Mongo/API/Caddy tiếp tục chạy. API runtime không nhận root URI/password hoặc mật khẩu seed/bootstrap.
+Lần đầu Mongo tự tạo root, keyfile nội bộ, khởi tạo replica set `rs0`, đợi primary; migrate tạo collections/validators/indexes và runtime user. Demo seed chạy trong transaction, hỗ trợ DB trống hoặc chỉ có một Admin bootstrap, không trộn dữ liệu nghiệp vụ có sẵn. `mongo-init` và `migrate` phải **Exited (0)**; Mongo/API/Caddy tiếp tục chạy. API runtime không nhận root URI/password hoặc mật khẩu seed/bootstrap.
 
 Runtime chỉ dùng account `stayflow_app` readWrite trên database StayFlow; tài khoản này vẫn có một số quyền quản lý collection theo built-in role, không phải SQL DML-only. API kiểm tra phân quyền người dùng phía server. Chỉ migration service nhận root URI. Khi đổi env mật khẩu, cần đổi password tương ứng trong MongoDB; sửa env không tự xoay tài khoản đã tồn tại.
 
@@ -59,7 +59,7 @@ docker compose -p stayflow --env-file deploy/.env \
 curl --fail --show-error https://api.tenmiencuaban.com/health
 ```
 
-Mong đợi `{"status":"ok"}` và TLS hợp lệ. Sau đó mở web, đăng nhập, tạo ca Cleaner hiện tại và thử task → nhận việc → checklist → lễ tân xác nhận. Seed ca hết hạn sau 10 giờ, không reset DB để thêm ca.
+Mong đợi `{"status":"ok"}` và TLS hợp lệ. Sau đó đăng nhập `letan`, thử task-desk-start → checklist → task-desk-complete; không cần Cleaner/ca. Có FOOD/SPECIAL, booking và hóa đơn mẫu để kiểm tra API/trợ lý. Xem [Gemini và seed sau deploy](gemini-and-demo-seed.md).
 
 ## 4. Dữ liệu, backup và cập nhật
 

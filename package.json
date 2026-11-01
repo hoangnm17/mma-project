@@ -1,6 +1,6 @@
 {
   "name": "stayflow-project",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "private": true,
   "description": "StayFlow backend and Expo mobile frontend",
   "scripts": {

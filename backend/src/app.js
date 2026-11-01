@@ -277,6 +277,7 @@ export function createApp() {
     if (!error.status) console.error(error.message);
     res.status(error.status || 500).json({
       error: error.status ? error.message : "Lỗi máy chủ. Vui lòng thử lại.",
+      ...(error.aiCode ? { code: error.aiCode, ...(error.providerStatus ? { providerStatus: error.providerStatus } : {}) } : {}),
     });
   });
   return app;

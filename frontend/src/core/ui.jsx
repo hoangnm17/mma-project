@@ -12,20 +12,21 @@ import {
   Button,
   TextInput,
   Card,
-  Chip,
+  TouchableRipple,
   ActivityIndicator,
   HelperText,
   Portal,
   Modal,
 } from "react-native-paper";
 import { Icon, IconTile, palette } from "./visuals";
+import { spacing, radii, typography, layout } from "./theme";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { action, read, errorText, requestId } from "./api";
 export const colors = {
-  navy: "#102D46",
-  teal: "#087F8C",
+  navy: palette.ink,
+  teal: palette.teal,
   bg: palette.canvas,
-  muted: "#63788A",
+  muted: palette.muted,
 };
 export const vnMoney = (n) =>
   new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(
@@ -62,36 +63,30 @@ export const labels = {
 };
 export function Badge({ value }) {
   const statusColors = {
-    READY: ["#E5F4EF", "#1E7B60", "check-circle-outline"],
-    COMPLETED: ["#E5F4EF", "#1E7B60", "check-circle-outline"],
-    OCCUPIED: ["#E9F1FE", "#366EB4", "account-key-outline"],
-    OPEN: ["#E9F1FE", "#366EB4", "key-outline"],
-    DIRTY: ["#FFF2DA", "#A46F16", "broom"],
-    PENDING: ["#FFF2DA", "#A46F16", "clock-outline"],
-    AWAITING_VERIFICATION: ["#F0EBFC", "#7A57AC", "clipboard-check-outline"],
-    IN_PROGRESS: ["#E3F4F3", "#087E83", "progress-clock"],
-    CANCELLED: ["#FCEBEC", "#B45B64", "close-circle-outline"],
-    DISABLED: ["#EDF1F4", "#738494", "pause-circle-outline"],
-    MAINTENANCE: ["#FCEBEC", "#B45B64", "tools"],
+    READY: [palette.mint, palette.success, "check-circle-outline"],
+    COMPLETED: [palette.mint, palette.success, "check-circle-outline"],
+    OCCUPIED: [palette.blue, palette.info, "account-key-outline"],
+    OPEN: [palette.blue, palette.info, "key-outline"],
+    DIRTY: [palette.amber, palette.warning, "broom"],
+    PENDING: [palette.amber, palette.warning, "clock-outline"],
+    AWAITING_VERIFICATION: [palette.violet, palette.purple, "clipboard-check-outline"],
+    IN_PROGRESS: [palette.mint, palette.teal, "progress-clock"],
+    CANCELLED: [palette.rose, palette.error, "close-circle-outline"],
+    DISABLED: [palette.canvas, palette.muted, "pause-circle-outline"],
+    MAINTENANCE: [palette.rose, palette.error, "tools"],
   };
   const [backgroundColor, color, icon] = statusColors[value] || [
-    "#EDF2F6",
-    "#536B7D",
+    palette.canvas,
+    palette.muted,
     "circle-small",
   ];
   return (
-    <Chip
-      compact
-      icon={() => <Icon name={icon} size={15} color={color} />}
-      textStyle={{ color, fontSize: 11, fontWeight: "700" }}
-      style={{
-        alignSelf: "flex-start",
-        backgroundColor,
-        borderRadius: 9,
-      }}
-    >
-      {labels[value] || value}
-    </Chip>
+    <View style={[styles.badge, { backgroundColor }]}>
+      <Icon name={icon} size={16} color={color} />
+      <Text style={[typography.labelMedium, { color, flexShrink: 1 }]}>
+        {labels[value] || value}
+      </Text>
+    </View>
   );
 }
 export function Screen({
@@ -135,10 +130,11 @@ export function Screen({
       >
         {header || (
           <View style={styles.screenHeader}>
-            <View style={{ flex: 1, gap: 7 }}>
+            <View style={{ flex: 1, gap: spacing.sm }}>
               <Text
                 variant="headlineMedium"
-                style={[styles.title, { fontSize: 28, letterSpacing: -0.8 }]}
+                accessibilityRole="header"
+                style={[typography.headlineMedium, styles.title]}
               >
                 {title}
               </Text>
@@ -151,17 +147,17 @@ export function Screen({
           </View>
         )}
         {children}
-        <View style={{ height: 28 }} />
+        <View style={{ height: spacing.xxl }} />
       </ScrollView>
     </KeyboardAvoidingView>
   );
 }
-export function Panel({ title, children, icon, subtitle }) {
+export function Panel({ title, children, icon, subtitle, style, contentStyle }) {
   return (
-    <Card style={styles.panel} mode="outlined">
-      <Card.Content style={{ gap: 12 }}>
+    <Card style={[styles.panel, style]} mode="outlined">
+      <Card.Content style={[{ gap: spacing.lg }, contentStyle]}>
         {title && (
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.md }}>
             <IconTile
               name={
                 icon ||
@@ -175,12 +171,13 @@ export function Panel({ title, children, icon, subtitle }) {
                         ? "broom"
                         : "layers-outline")
               }
-              size={34}
+              size={32}
             />
             <View style={{ flex: 1 }}>
               <Text
                 variant="titleMedium"
-                style={[styles.title, { fontSize: 15 }]}
+                accessibilityRole="header"
+                style={[typography.titleMedium, styles.title]}
               >
                 {title}
               </Text>
@@ -201,10 +198,10 @@ export function Field({ label, value, onChangeText, ...props }) {
       accessibilityLabel={label}
       value={String(value ?? "")}
       onChangeText={onChangeText}
-      style={{ backgroundColor: "#FFF" }}
-      outlineColor="#DDE7EA"
+      style={{ backgroundColor: palette.surface }}
+      outlineColor={palette.outline}
       activeOutlineColor={palette.teal}
-      outlineStyle={{ borderRadius: 12 }}
+      outlineStyle={{ borderRadius: radii.md }}
       {...props}
     />
   );
@@ -239,30 +236,31 @@ export function DateTimeField({ label, value, onChangeText }) {
 }
 export function Select({ label, value, onChange, options }) {
   return (
-    <View style={{ gap: 8 }}>
-      <Text style={{ fontSize: 12, fontWeight: "700", color: palette.ink }}>
+    <View style={{ gap: spacing.sm }}>
+      <Text style={[typography.labelLarge, { color: palette.ink }]}>
         {label}
       </Text>
       <View style={styles.row}>
         {options.map((o) => (
-          <Chip
+          <TouchableRipple
             key={String(o.value)}
-            selected={value === o.value}
+            accessibilityRole="button"
+            accessibilityLabel={`${label}: ${o.label}`}
+            accessibilityState={{ selected: value === o.value }}
+            {...(Platform.OS === "web" ? { "aria-pressed": value === o.value } : {})}
             onPress={() => onChange(o.value)}
-            style={{
-              marginBottom: 3,
-              backgroundColor: value === o.value ? palette.mint : "#FFF",
-              borderWidth: 1,
-              borderColor: value === o.value ? "#9CCAC0" : palette.line,
-              borderRadius: 10,
-            }}
-            textStyle={{
-              fontSize: 12,
-              color: value === o.value ? palette.teal : palette.muted,
-            }}
+            style={[styles.option, {
+              backgroundColor: value === o.value ? palette.mint : palette.surface,
+              borderColor: value === o.value ? palette.teal : palette.outline,
+            }]}
           >
-            {o.label}
-          </Chip>
+            <View style={styles.optionContent}>
+              {value === o.value && <Icon name="check" size={16} />}
+              <Text style={[typography.labelLarge, { flexShrink: 1, color: value === o.value ? palette.teal : palette.muted }]}>
+                {o.label}
+              </Text>
+            </View>
+          </TouchableRipple>
         ))}
       </View>
     </View>
@@ -368,8 +366,8 @@ export function ActionButton({
                       ? "plus-circle-outline"
                       : "arrow-right")
         }
-        style={{ borderRadius: 12 }}
-        contentStyle={{ minHeight: 46 }}
+        style={{ borderRadius: radii.md }}
+        contentStyle={{ minHeight: layout.touchTarget }}
         loading={mutation.isPending}
         disabled={disabled || mutation.isPending}
         onPress={() => mutation.mutate({ name, body }, { onSuccess })}
@@ -407,7 +405,7 @@ export function Dialog({ visible, onDismiss, title, children }) {
       >
         <ScrollView
           keyboardShouldPersistTaps="handled"
-          contentContainerStyle={{ gap: 14 }}
+          contentContainerStyle={{ gap: spacing.lg }}
         >
           <Text variant="titleLarge" style={styles.title}>
             {title}
@@ -421,18 +419,18 @@ export function Dialog({ visible, onDismiss, title, children }) {
 }
 export const styles = StyleSheet.create({
   screen: {
-    padding: 16,
-    gap: 14,
+    padding: spacing.lg,
+    gap: spacing.lg,
     width: "100%",
-    maxWidth: 900,
+    maxWidth: layout.maxWidth,
     alignSelf: "center",
   },
   screenHeader: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
-    paddingTop: 10,
-    paddingBottom: 4,
+    gap: spacing.md,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.sm,
   },
   eyebrow: {
     fontSize: 9,
@@ -440,20 +438,46 @@ export const styles = StyleSheet.create({
     letterSpacing: 1.8,
     color: palette.teal,
   },
-  title: { fontWeight: "800", color: colors.navy },
-  muted: { color: colors.muted, fontSize: 12, lineHeight: 20 },
+  title: { fontWeight: "700", color: colors.navy },
+  muted: { ...typography.bodyMedium, color: colors.muted },
   panel: {
-    backgroundColor: "#FFF",
-    borderRadius: 20,
+    backgroundColor: palette.surface,
+    borderRadius: radii.lg,
     borderWidth: 1,
     borderColor: palette.line,
   },
-  row: { flexDirection: "row", flexWrap: "wrap", gap: 8, alignItems: "center" },
+  row: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, alignItems: "center" },
+  badge: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    maxWidth: "100%",
+    gap: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: radii.sm,
+  },
+  option: {
+    minHeight: layout.touchTarget,
+    maxWidth: "100%",
+    borderWidth: 1,
+    borderRadius: radii.md,
+    justifyContent: "center",
+    overflow: "hidden",
+  },
+  optionContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+  },
   modal: {
-    margin: 20,
-    padding: 20,
-    borderRadius: 20,
-    backgroundColor: "white",
+    margin: spacing.lg,
+    padding: spacing.xl,
+    borderRadius: radii.lg,
+    backgroundColor: palette.surface,
     maxHeight: "90%",
     maxWidth: 700,
     width: "92%",

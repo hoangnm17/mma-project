@@ -1,10 +1,5 @@
-# Explicit demo opt-in; seed runs before bootstrap-admin because seed skips existing admin.
-# Use only with a fresh demo database, never against a production database.
+# Compatibility override; base deployment now initializes demo data by default.
 services:
   migrate:
-    command:
-      [
-        sh,
-        -c,
-        "node scripts/migrate.js && node scripts/provision-runtime.js && node scripts/seed.js && node scripts/bootstrap-admin.js",
-      ]
+    environment:
+      DEMO_AUTO_SEED: "true"

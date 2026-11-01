@@ -24,8 +24,9 @@ let server, browser;
 const screenshots = path.join(root, "artifacts", "ui-regression");
 await mkdir(screenshots, { recursive: true });
 const errors = [];
+const originalFetch = globalThis.fetch;
 try {
-  for (const script of ["migrate.js", "seed.js"]) {
+  for (const script of ["migrate.js", "seed.js", "seed-history.js"]) {
     const run = spawnSync(process.execPath, ["scripts/" + script], { cwd: backend, env: process.env, stdio: "inherit", windowsHide: true });
     assert.equal(run.status, 0, script);
   }
@@ -120,7 +121,52 @@ try {
   assert.equal(await ctx.db.collection("Invoices").countDocuments({ id: invoice.id }), 1);
   assert.equal(errors.length, 0, errors.join("\n"));
   console.log("PASS checkout records payment and invoice through UI");
-  await writeFile(path.join(screenshots, "results.json"), JSON.stringify({ passed: 5, errors, viewport: "390x844" }, null, 2));
+  await button("Tổng quan").click();
+  await page.getByText("Bao gồm dữ liệu demo 60 ngày", { exact: true }).waitFor();
+  for (const [width, height] of [[320, 740], [390, 844], [768, 1024], [844, 390], [1280, 900]]) {
+    await page.setViewportSize({ width, height });
+    assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), `Dashboard overflow at ${width}`);
+    await page.screenshot({ path: path.join(screenshots, `release-dashboard-${width}.png`) });
+  }
+  await page.setViewportSize({ width: 390, height: 844 });
+  await button("Xem dự báo và hỏi AI").click();
+  await page.getByText("DOANH THU ƯỚC TÍNH · 7 NGÀY", { exact: true }).waitFor();
+  await page.getByText("Có sử dụng dữ liệu demo. Kết quả dùng để trải nghiệm tính năng.", { exact: true }).waitFor();
+  let managerCalls = 0;
+  page.on("request", req => { if (req.method() === "POST" && req.url().endsWith("/api/ai/manager")) managerCalls++; });
+  await button("Doanh thu 7 ngày tới").click();
+  assert.match(await field("Câu hỏi của bạn").inputValue(), /7 ngày tới/);
+  assert.equal(managerCalls, 0, "Suggestion must not submit or spend AI quota before confirmation");
+  process.env.AI_PROVIDER = "gemini";
+  process.env.GEMINI_API_KEY = "ui-test-only-key";
+  process.env.GEMINI_MODEL = "gemini-3.5-flash-lite";
+  globalThis.fetch = async () => ({ ok: true, json: async () => ({ candidates: [{ finishReason: "STOP", content: { parts: [{ text: JSON.stringify({ tool: "forecast", days: 7, start: null, end: null, question: null }) }] } }] }) });
+  const answerResponse = page.waitForResponse(response => response.url().endsWith("/api/ai/manager"));
+  await button("Hỏi trợ lý").click();
+  const answer = await answerResponse;
+  assert.equal(answer.status(), 200, await answer.text());
+  assert.equal(managerCalls, 1);
+  await page.getByText("Trợ lý trả lời", { exact: true }).waitFor();
+  await button("30 ngày tới").click();
+  await page.getByText("DOANH THU ƯỚC TÍNH · 30 NGÀY", { exact: true }).waitFor();
+  await button("Xem đủ 30 ngày").click();
+  await button("Thu gọn còn 7 ngày").waitFor();
+  await button("Thu gọn còn 7 ngày").click();
+  for (const [width, height] of [[320, 740], [390, 844], [768, 1024], [844, 390], [1280, 900]]) {
+    await page.setViewportSize({ width, height });
+    assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), `Assistant overflow at ${width}`);
+    await page.screenshot({ path: path.join(screenshots, `release-assistant-${width}.png`), fullPage: true });
+    const target = await button("Tuần tới có đông khách?").boundingBox();
+    assert(target.height >= 48);
+  }
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByText("Trợ lý & dự báo", { exact: true }).scrollIntoViewIfNeeded();
+  await page.screenshot({ path: path.join(screenshots, "release-assistant-questions.png") });
+  await page.getByText("DOANH THU ƯỚC TÍNH · 30 NGÀY", { exact: true }).scrollIntoViewIfNeeded();
+  await page.screenshot({ path: path.join(screenshots, "release-forecast-summary.png") });
+  assert.equal(errors.length, 0, errors.join("\n"));
+  console.log("PASS 60-day dashboard/forecast, explicit AI suggestion submission and responsive layouts");
+  await writeFile(path.join(screenshots, "results.json"), JSON.stringify({ passed: 6, errors, viewports: [320, 390, 768, 844, 1280], ai: "mock provider; real local API, forecast and MongoDB" }, null, 2));
 } catch (error) {
   if (browser) for (const context of browser.contexts()) for (const page of context.pages()) {
     await page.screenshot({ path: path.join(screenshots, "failure.png") }).catch(() => {});
@@ -128,6 +174,7 @@ try {
   }
   throw error;
 } finally {
+  globalThis.fetch = originalFetch;
   await browser?.close();
   if (server) await new Promise(resolve => server.close(resolve));
   const ctx = await database();

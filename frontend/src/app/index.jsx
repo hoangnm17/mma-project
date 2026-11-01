@@ -178,7 +178,7 @@ export default function Home() {
                     (key === "more" &&
                       moreOptions.some(([k]) => k === selected))
                       ? palette.teal
-                      : "#8B9CA8"
+                      : palette.muted
                   }
                 />
               </View>
@@ -203,7 +203,7 @@ export default function Home() {
   );
 }
 const nav = StyleSheet.create({
-  item: { flex: 1, alignItems: "center", gap: 4, paddingVertical: 2 },
+  item: { flex: 1, minHeight: 56, alignItems: "center", gap: 4, paddingVertical: 4 },
   iconWrap: {
     width: 48,
     height: 30,
@@ -212,5 +212,5 @@ const nav = StyleSheet.create({
     justifyContent: "center",
   },
   active: { backgroundColor: palette.mint },
-  label: { fontSize: 10, color: "#8B9CA8", fontWeight: "600" },
+  label: { fontSize: 12, lineHeight: 18, color: palette.muted, fontWeight: "600", textAlign: "center" },
 });
